@@ -3,4 +3,7 @@ project(cpp_project)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(cpp_project main.cpp)
+add_executable(cpp_project
+        tensor_impl.h
+        main.cpp
+        tensor.h)
