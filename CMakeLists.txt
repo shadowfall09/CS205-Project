@@ -1,15 +1,17 @@
-cmake_minimum_required(VERSION 3.27)
-project(cpp_project)
+cmake_minimum_required(VERSION 3.26)
+project(CS205-Project LANGUAGES CXX CUDA) # Add CUDA as a language if you're using CUDA
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(cpp_project
-        test_openmp.cpp)
+add_executable(CS205-Project
+        main_aclr.cu
+        tensor_aclr_impl.cuh
+        tensor_aclr.cuh
+)
 
-# openMP 配置
-FIND_PACKAGE(OpenMP REQUIRED)
+# OpenMP Configuration
+find_package(OpenMP REQUIRED)
 if (OPENMP_FOUND)
     message("OPENMP FOUND")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    target_link_libraries(CS205-Project PUBLIC OpenMP::OpenMP_CXX)
 endif ()
