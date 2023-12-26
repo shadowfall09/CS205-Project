@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <typeinfo>
 #include <numeric>
+#include <utility>
 
 namespace ts {
     // Random Generation Part
@@ -18,41 +19,56 @@ namespace ts {
         return dis(gen);
     }
 
-    // Helper function to calculate total size from shape
+    // Helper function to calculate total shape from shape
     int totalSize(const std::vector<int> &shape) {
         return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
     }
 
 
     template<typename T>
-    Tensor<T>::Tensor(std::vector<int> shape, T defaultValue)
-            : data(totalSize(shape), defaultValue), shape(shape), type(typeid(T).name()) {}
+    Tensor<T>::Tensor(const std::vector<int> &shape, T defaultValue)
+            :  shape(shape), type(typeid(T).name()) {
+        cudaMallocManaged(&data, totalSize(shape) * sizeof(T));
+        std::fill(data, data + totalSize(shape), defaultValue);
+    }
 
     template<typename T>
-    Tensor<T>::Tensor(std::vector<int> shape)
-            : Tensor(shape, T{}) {}
+    Tensor<T>::Tensor(std::vector<int> shape, T *data)
+            : data(data), shape(std::move(shape)), type(typeid(T).name()) {}
 
     template<typename T>
-    Tensor<T> rand(std::vector<int> size) {
-        Tensor<T> tensor(size);
-        std::generate(tensor.data.begin(), tensor.data.end(),
-                      []() { return static_cast<T>(random()); });
+    Tensor<T> tensor(std::vector<int> shape, T *data) {
+        return Tensor<T>(shape, data);
+    }
+
+    template<typename T>
+    Tensor<T> tensor(std::vector<int> shape, T defaultValue) {
+        return Tensor<T>(shape, defaultValue);
+    }
+
+    template<typename T>
+    Tensor<T> rand(std::vector<int> shape) {
+        Tensor<T> tensor(shape, nullptr);
+        cudaMallocManaged(&tensor.data, totalSize(shape) * sizeof(T));
+        for (int i = 0; i < totalSize(shape); ++i) {
+            tensor.data[i] = random();
+        }
         return tensor;
     }
 
     template<typename T>
-    Tensor<T> zeros(std::vector<int> size) {
-        return Tensor<T>(size, 0);
+    Tensor<T> zeros(std::vector<int> shape) {
+        return Tensor<T>(shape, 0);
     }
 
     template<typename T>
-    Tensor<T> ones(std::vector<int> size) {
-        return Tensor<T>(size, 1);
+    Tensor<T> ones(std::vector<int> shape) {
+        return Tensor<T>(shape, 1);
     }
 
     template<typename T>
-    Tensor<T> full(std::vector<int> size, T value) {
-        return Tensor<T>(size, value);
+    Tensor<T> full(std::vector<int> shape, T value) {
+        return Tensor<T>(shape, value);
     }
 
     template<typename T>
@@ -68,21 +84,22 @@ namespace ts {
     std::ostream &operator<<(std::ostream &os, const Tensor<T> &tensor) {
         int dimension = 0;
         int spaces = -1;
+        int data_size = totalSize(tensor.shape);
         for (int i = 0; i < tensor.shape.size(); ++i) {
             os << "[";
             dimension = tensor.shape[i];
             spaces++;
         }
 
-        for (int i = 0; i < tensor.data.size(); ++i) {
-            os << tensor.data[i];
-            if ((i + 1) % dimension == 0 && i != tensor.data.size() - 1) {
+        for (int i = 0; i < data_size; ++i) {
+            os << *(tensor.data + i);
+            if ((i + 1) % dimension == 0 && i != data_size - 1) {
                 os << "],\n";
                 for (int j = 0; j < spaces; ++j) {
                     os << " ";
                 }
                 os << "[";
-            } else if (i != tensor.data.size() - 1) {
+            } else if (i != data_size - 1) {
                 os << ", ";
             }
         }

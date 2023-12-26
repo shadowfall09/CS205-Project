@@ -5,7 +5,7 @@
 int main() {
     // test all functions in main_aclr.cu
     std::vector<int> shape = {4, 5};
-    ts::Tensor<int> tensor(shape, 1);
+ts::Tensor<int> tensor = ts::tensor(shape, 1);
     std::cout << tensor << std::endl << std::endl;
     std::cout << ts::rand<int>(shape) << std::endl << std::endl;
     std::cout << ts::zeros<int>(shape) << std::endl << std::endl;

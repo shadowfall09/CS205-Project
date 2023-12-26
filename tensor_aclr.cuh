@@ -9,13 +9,14 @@ namespace ts {
     template<typename T>
     class Tensor {
     public:
-        std::vector<T> data;
+        T *data;
         std::vector<int> shape;
         std::string type;
 
-        Tensor(std::vector<int> shape, T defaultValue);
+        Tensor(const std::vector<int>& shape, T defaultValue);
 
-        explicit Tensor(std::vector<int> shape);
+        Tensor(std::vector<int> shape, T *data);
+
 
         template<typename U>
         friend std::ostream &operator<<(std::ostream &os, const Tensor<U> &tensor);
@@ -24,19 +25,25 @@ namespace ts {
     };
 
     template<typename T>
-    Tensor<T> rand(std::vector<int> size);
+    Tensor<T> tensor(std::vector<int> shape, T *data);
 
     template<typename T>
-    Tensor<T> zeros(std::vector<int> size);
+    Tensor<T> tensor(std::vector<int> shape, T defaultValue);
 
     template<typename T>
-    Tensor<T> ones(std::vector<int> size);
+    Tensor<T> rand(std::vector<int> shape);
 
     template<typename T>
-    Tensor<T> full(std::vector<int> size, T value);
+    Tensor<T> zeros(std::vector<int> shape);
 
     template<typename T>
-    Tensor<T> eye(int size);
+    Tensor<T> ones(std::vector<int> shape);
+
+    template<typename T>
+    Tensor<T> full(std::vector<int> shape, T value);
+
+    template<typename T>
+    Tensor<T> eye(int shape);
 }
 
 #endif // TENSOR_ACLR_CUH
