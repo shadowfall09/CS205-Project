@@ -7,6 +7,8 @@
 #include <typeinfo>
 #include <numeric>
 #include <utility>
+#include <cassert>
+#include <cmath>
 
 namespace ts {
     // ======= Random Part =======
@@ -137,6 +139,300 @@ namespace ts {
         return tensor;
     }
 
+    // ======= CUDA FUNCTIONS =======
+    // Add with scalar
+    template<typename T>
+    __global__ void addScalarKernel(T* data, T value, T* data3, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            data3[index] = data[index] + value;
+        }
+    }
+
+    // Add
+    template<typename T>
+    __global__ void addKernel(T* data1, T* data2, T* data3, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            data3[index] = data1[index] + data2[index];
+        }
+    }
+
+    // Subtract with scalar
+    template<typename T>
+    __global__ void subScalarKernel(T* data, T value, T* data3, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            data3[index] = data[index] - value;
+        }
+    }
+
+    // Subtract
+    template<typename T>
+    __global__ void subKernel(T* data1, T* data2, T* data3, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            data3[index] = data1[index] - data2[index];
+        }
+    }
+
+    // Multiply with scalar
+    template<typename T>
+    __global__ void mulScalarKernel(T* data, T value, T* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = data[index] * value;
+        }
+    }
+
+    // Multiply
+    template<typename T>
+    __global__ void mulKernel(T* data1, T* data2, T* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = data1[index] * data2[index];
+        }
+    }
+    // Divide with scalar
+    template<typename T>
+    __global__ void divScalarKernel(T* data, T value, T* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = data[index] / value;
+        }
+    }
+
+    // Divide
+    template<typename T>
+    __global__ void divKernel(T* data1, T* data2, T* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = data1[index] / data2[index];
+        }
+    }
+
+    // Log
+    template<typename T>
+    __global__ void logKernel(T* data, T* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = log(data[index]);
+        }
+    }
+
+    // ======= CUDA FUNCTIONS END =======
+
+    // ======= 3.1 Pointwise operations =======
+
+    // Helper function to get initial value from a type
+    template<typename T>
+    T Tensor<T>::getT() {
+        T initial_type;
+        if (type == typeid(int).name()){
+            initial_type = 0;
+        }else if (type == typeid(double).name() || type == typeid(float).name()){
+            initial_type = 0.0f;
+        }else if (type == typeid(bool).name()){
+            initial_type = false;
+        }
+        return initial_type;
+    }
+
+    // ======= 3.1.1 Add =======
+    template<typename T>
+    Tensor<T> Tensor<T>::add(const Tensor<T>& other) {
+        assert(shape == other.shape);
+        assert(type == other.type);
+        T initial_type = getT();
+        Tensor<T> result(shape, initial_type);
+        int size = shape.size();
+        addKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+
+    template<typename T>
+    Tensor<T> Tensor<T>::add(T value) {
+        T initial_type = getT();
+        Tensor<T> result(shape, initial_type);
+        int size = shape.size();
+        addScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> add(Tensor<T>& t1, Tensor<T>& t2) {
+        return t1.add(t2);
+    }
+
+    template<typename T>
+    Tensor<T> add(Tensor<T>& tensor, T value) {
+        return tensor.add(value);
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::operator+(const Tensor<T>& other) {
+        return add(other);
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::operator+(T value) {
+        return add(value);
+    }
+    // ======= 3.1.1 Add End =======
+
+    // ======= 3.1.2 Subtract =======
+    template<typename T>
+    Tensor<T> Tensor<T>::sub(const Tensor<T>& other) {
+        assert(shape == other.shape);
+        assert(type == other.type);
+        T initial_type = getT();
+        Tensor<T> result(shape, initial_type);
+        int size = shape.size();
+        subKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::sub(T value) {
+        T initial_type = getT();
+        Tensor<T> result(shape, initial_type);
+        int size = shape.size();
+        subScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> sub(Tensor<T>& t1, Tensor<T>& t2) {
+        return t1.sub(t2);
+    }
+
+    template<typename T>
+    Tensor<T> sub(Tensor<T>& tensor, T value) {
+        return tensor.sub(value);
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::operator-(const Tensor<T>& other) {
+        return sub(other);
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::operator-(T value) {
+        return sub(value);
+    }
+    // ======= 3.1.2 Subtract End =======
+
+    // ======= 3.1.3 Multiply =======
+    template<typename T>
+    Tensor<T> Tensor<T>::mul(const Tensor<T>& other) {
+        assert(shape == other.shape);
+        assert(type == other.type);
+        T initial_type = getT();
+        Tensor<T> result(shape, initial_type);
+        int size = shape.size();
+        mulKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::mul(T value) {
+        T initial_type = getT();
+        Tensor<T> result(shape, initial_type);
+        int size = shape.size();
+        mulScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> mul(Tensor<T>& t1, Tensor<T>& t2) {
+        return t1.mul(t2);
+    }
+
+    template<typename T>
+    Tensor<T> mul(Tensor<T>& tensor, T value) {
+        return tensor.mul(value);
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::operator*(const Tensor<T>& other) {
+        return mul(other);
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::operator*(T value) {
+        return mul(value);
+    }
+    // ======= 3.1.3 Multiply End =======
+
+    // ======= 3.1.4 Divide =======
+    template<typename T>
+    Tensor<T> Tensor<T>::div(const Tensor<T>& other) {
+        assert(shape == other.shape);
+        assert(type == other.type);
+        T initial_type = getT();
+        Tensor<T> result(shape, initial_type);
+        int size = shape.size();
+        divKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::div(T value) {
+        T initial_type = getT();
+        Tensor<T> result(shape, initial_type);
+        int size = shape.size();
+        divScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> div(Tensor<T>& t1, Tensor<T>& t2) {
+        return t1.div(t2);
+    }
+
+    template<typename T>
+    Tensor<T> div(Tensor<T>& tensor, T value) {
+        return tensor.div(value);
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::operator/(const Tensor<T>& other) {
+        return div(other);
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::operator/(T value) {
+        return div(value);
+    }
+    // ======= 3.1.4 Divide End =======
+
+    // ======= 3.1.5 Log ======
+    template<typename T>
+    Tensor<T> Tensor<T>::log() {
+        T initial_type = getT();
+        Tensor<T> result(shape, initial_type);
+        int size = shape.size();
+        logKernel<<<(size + 511) / 512, 512>>>(data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> log(Tensor<T>& tensor) {
+        return tensor.log();
+    }
+    // ======= 3.1.5 Log End ======
+
+    // ======= 3.1 Pointwise operations End =======
 }
 
 #endif // TENSOR_ACLR_IMPL_CUH

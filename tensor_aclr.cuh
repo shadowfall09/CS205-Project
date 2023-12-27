@@ -26,6 +26,36 @@ namespace ts {
 
         // slicing: t(2,{2,4})
         Tensor<T> operator()(int axis, std::vector<int> indices);
+
+        // add
+        Tensor<T> add(const Tensor<T>& other);
+        Tensor<T> add(T value);
+        Tensor<T> operator+(const Tensor<T>& other);
+        Tensor<T> operator+(T value);
+
+        // subtract
+        Tensor<T> sub(const Tensor<T>& other);
+        Tensor<T> sub(T value);
+        Tensor<T> operator-(const Tensor<T>& other);
+        Tensor<T> operator-(T value);
+
+        // multiply
+        Tensor<T> mul(const Tensor<T>& other);
+        Tensor<T> mul(T value);
+        Tensor<T> operator*(const Tensor<T>& other);
+        Tensor<T> operator*(T value);
+
+        //divide
+        Tensor<T> div(const Tensor<T>& other);
+        Tensor<T> div(T value);
+        Tensor<T> operator/(const Tensor<T>& other);
+        Tensor<T> operator/(T value);
+
+        //log
+        Tensor<T> log();
+
+        // Other member functions...
+        T getT();
     };
 
     template<typename T>
@@ -48,6 +78,33 @@ namespace ts {
 
     template<typename T>
     Tensor<T> eye(int shape);
+
+    template<typename T>
+    Tensor<T> add(Tensor<T>& t1, Tensor<T>& t2);
+
+    template<typename T>
+    Tensor<T> add(Tensor<T>& tensor, T value);
+
+    template<typename T>
+    Tensor<T> sub(Tensor<T>& t1, Tensor<T>& t2);
+
+    template<typename T>
+    Tensor<T> sub(Tensor<T>& tensor, T value);
+
+    template<typename T>
+    Tensor<T> mul(Tensor<T>& t1, Tensor<T>& t2);
+
+    template<typename T>
+    Tensor<T> mul(Tensor<T>& tensor, T value);
+
+    template<typename T>
+    Tensor<T> div(Tensor<T>& t1, Tensor<T>& t2);
+
+    template<typename T>
+    Tensor<T> div(Tensor<T>& tensor, T value);
+
+    template<typename T>
+    Tensor<T> log(Tensor<T>& tensor);
 }
 
 #endif // TENSOR_ACLR_CUH
