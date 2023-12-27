@@ -24,7 +24,7 @@ namespace ts {
 
     // Helper function to calculate total shape from shape
     int totalSize(const std::vector<int> &shape) {
-        return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
+        return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     }
 
     // Helper function to print tensor
@@ -69,6 +69,14 @@ namespace ts {
     template<typename T>
     Tensor<T>::Tensor(std::vector<int> shape, T *data)
             : data(data), shape(std::move(shape)), type(typeid(T).name()) {}
+
+    template<typename T>
+    Tensor<T>::Tensor(const Tensor<T>& other) {
+        shape = other.shape;
+        type = other.type;
+        cudaMallocManaged(&data, totalSize(shape) * sizeof(T));
+        cudaMemcpy(data, other.data, totalSize(shape) * sizeof(T), cudaMemcpyDeviceToDevice);
+    }
     // ======= Class Constructor End =======
 
     // ======= 1. Creation and Initialization =======
@@ -220,31 +228,70 @@ namespace ts {
         }
     }
 
+    // EQ comparison
+    template<typename T>
+    __global__ void eqKernel(const T* data1, const T* data2, bool* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = (data1[index] == data2[index]);
+        }
+    }
+
+    // NE comparison
+    template<typename T>
+    __global__ void neKernel(const T* data1, const T* data2, bool* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = (data1[index] != data2[index]);
+        }
+    }
+
+    // GT comparison
+    template<typename T>
+    __global__ void gtKernel(const T* data1, const T* data2, bool* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = (data1[index] > data2[index]);
+        }
+    }
+
+    // GE comparison
+    template<typename T>
+    __global__ void geKernel(const T* data1, const T* data2, bool* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = (data1[index] >= data2[index]);
+        }
+    }
+
+    // LT comparison
+    template<typename T>
+    __global__ void ltKernel(const T* data1, const T* data2, bool* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = (data1[index] < data2[index]);
+        }
+    }
+
+    // LE comparison
+    template<typename T>
+    __global__ void leKernel(const T* data1, const T* data2, bool* result, int size) {
+        int index = threadIdx.x + blockIdx.x * blockDim.x;
+        if (index < size) {
+            result[index] = (data1[index] <= data2[index]);
+        }
+    }
+
     // ======= CUDA FUNCTIONS END =======
 
     // ======= 3.1 Pointwise operations =======
-
-    // Helper function to get initial value from a type
-    template<typename T>
-    T Tensor<T>::getT() {
-        T initial_type;
-        if (type == typeid(int).name()){
-            initial_type = 0;
-        }else if (type == typeid(double).name() || type == typeid(float).name()){
-            initial_type = 0.0f;
-        }else if (type == typeid(bool).name()){
-            initial_type = false;
-        }
-        return initial_type;
-    }
 
     // ======= 3.1.1 Add =======
     template<typename T>
     Tensor<T> Tensor<T>::add(const Tensor<T>& other) {
         assert(shape == other.shape);
         assert(type == other.type);
-        T initial_type = getT();
-        Tensor<T> result(shape, initial_type);
+        Tensor<T> result(*this);
         int size = shape.size();
         addKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -254,8 +301,7 @@ namespace ts {
 
     template<typename T>
     Tensor<T> Tensor<T>::add(T value) {
-        T initial_type = getT();
-        Tensor<T> result(shape, initial_type);
+        Tensor<T> result(*this);
         int size = shape.size();
         addScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -288,8 +334,7 @@ namespace ts {
     Tensor<T> Tensor<T>::sub(const Tensor<T>& other) {
         assert(shape == other.shape);
         assert(type == other.type);
-        T initial_type = getT();
-        Tensor<T> result(shape, initial_type);
+        Tensor<T> result(*this);
         int size = shape.size();
         subKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -298,8 +343,7 @@ namespace ts {
 
     template<typename T>
     Tensor<T> Tensor<T>::sub(T value) {
-        T initial_type = getT();
-        Tensor<T> result(shape, initial_type);
+        Tensor<T> result(*this);
         int size = shape.size();
         subScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -332,8 +376,7 @@ namespace ts {
     Tensor<T> Tensor<T>::mul(const Tensor<T>& other) {
         assert(shape == other.shape);
         assert(type == other.type);
-        T initial_type = getT();
-        Tensor<T> result(shape, initial_type);
+        Tensor<T> result(*this);
         int size = shape.size();
         mulKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -342,8 +385,7 @@ namespace ts {
 
     template<typename T>
     Tensor<T> Tensor<T>::mul(T value) {
-        T initial_type = getT();
-        Tensor<T> result(shape, initial_type);
+        Tensor<T> result(*this);
         int size = shape.size();
         mulScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -376,8 +418,7 @@ namespace ts {
     Tensor<T> Tensor<T>::div(const Tensor<T>& other) {
         assert(shape == other.shape);
         assert(type == other.type);
-        T initial_type = getT();
-        Tensor<T> result(shape, initial_type);
+        Tensor<T> result(*this);
         int size = shape.size();
         divKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -386,8 +427,7 @@ namespace ts {
 
     template<typename T>
     Tensor<T> Tensor<T>::div(T value) {
-        T initial_type = getT();
-        Tensor<T> result(shape, initial_type);
+        Tensor<T> result(*this);
         int size = shape.size();
         divScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -418,12 +458,16 @@ namespace ts {
     // ======= 3.1.5 Log ======
     template<typename T>
     Tensor<T> Tensor<T>::log() {
-        T initial_type = getT();
-        Tensor<T> result(shape, initial_type);
+        Tensor<T> result(*this);
         int size = shape.size();
         logKernel<<<(size + 511) / 512, 512>>>(data, result.data, totalSize(shape));
         cudaDeviceSynchronize();
         return result;
+    }
+
+    template<>
+    Tensor<bool> Tensor<bool>::log() {
+        throw std::invalid_argument("log operation is not supported for Tensor<bool>");
     }
 
     template<typename T>
@@ -433,6 +477,136 @@ namespace ts {
     // ======= 3.1.5 Log End ======
 
     // ======= 3.1 Pointwise operations End =======
+
+    // ======= 3.3 Comparison operations =======
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::eq(const Tensor<T>& other) {
+        assert(shape == other.shape);
+        assert(type == other.type);
+        Tensor<bool> result(shape, false);
+        int size = shape.size();
+        eqKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::ne(const Tensor<T>& other) {
+        assert(shape == other.shape);
+        assert(type == other.type);
+        Tensor<bool> result(shape, false);
+        int size = shape.size();
+        neKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::gt(const Tensor<T>& other) {
+        assert(shape == other.shape);
+        assert(type == other.type);
+        Tensor<bool> result(shape, false);
+        int size = shape.size();
+        gtKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::ge(const Tensor<T>& other) {
+        assert(shape == other.shape);
+        assert(type == other.type);
+        Tensor<bool> result(shape, false);
+        int size = shape.size();
+        geKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::lt(const Tensor<T>& other) {
+        assert(shape == other.shape);
+        assert(type == other.type);
+        Tensor<bool> result(shape, false);
+        int size = shape.size();
+        ltKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::le(const Tensor<T>& other) {
+        assert(shape == other.shape);
+        assert(type == other.type);
+        Tensor<bool> result(shape, false);
+        int size = shape.size();
+        leKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
+        cudaDeviceSynchronize();
+        return result;
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::operator!=(const Tensor<T>& other) {
+        return ne(other);
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::operator>(const Tensor<T>& other) {
+        return gt(other);
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::operator>=(const Tensor<T>& other) {
+        return ge(other);
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::operator<(const Tensor<T>& other) {
+        return lt(other);
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::operator<=(const Tensor<T>& other) {
+        return le(other);
+    }
+
+    template<typename T>
+    Tensor<bool> Tensor<T>::operator==(const Tensor<T>& other) {
+        return eq(other);
+    }
+    
+    template<typename T>
+    Tensor<bool> eq(Tensor<T>& t1, Tensor<T>& t2) {
+        return t1.eq(t2);
+    }
+
+    template<typename T>
+    Tensor<bool> ne(Tensor<T>& t1, Tensor<T>& t2) {
+        return t1.ne(t2);
+    }
+
+    template<typename T>
+    Tensor<bool> gt(Tensor<T>& t1, Tensor<T>& t2) {
+        return t1.gt(t2);
+    }
+
+    template<typename T>
+    Tensor<bool> ge(Tensor<T>& t1, Tensor<T>& t2) {
+        return t1.ge(t2);
+    }
+    
+    template<typename T>
+    Tensor<bool> lt(Tensor<T>& t1, Tensor<T>& t2) {
+        return t1.lt(t2);
+    }
+    
+    template<typename T>
+    Tensor<bool> le(Tensor<T>& t1, Tensor<T>& t2) {
+        return t1.le(t2);
+    }
+
+    // ======= 3.3 Comparison operations End =======
 }
 
 #endif // TENSOR_ACLR_IMPL_CUH

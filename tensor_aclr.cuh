@@ -17,6 +17,7 @@ namespace ts {
 
         Tensor(std::vector<int> shape, T *data);
 
+        Tensor(const Tensor<T>& other);
 
         template<typename U>
         friend std::ostream &operator<<(std::ostream &os, const Tensor<U> &tensor);
@@ -54,8 +55,21 @@ namespace ts {
         //log
         Tensor<T> log();
 
+        //eq, ne, gt, ge, lt, le.
+        Tensor<bool> eq(const Tensor<T>& other);
+        Tensor<bool> operator==(const Tensor<T>& other);
+        Tensor<bool> ne(const Tensor<T>& other);
+        Tensor<bool> operator!=(const Tensor<T>& other);
+        Tensor<bool> le(const Tensor<T>& other);
+        Tensor<bool> operator<=(const Tensor<T>& other);
+        Tensor<bool> lt(const Tensor<T>& other);
+        Tensor<bool> operator<(const Tensor<T>& other);
+        Tensor<bool> ge(const Tensor<T>& other);
+        Tensor<bool> operator>=(const Tensor<T>& other);
+        Tensor<bool> gt(const Tensor<T>& other);
+        Tensor<bool> operator>(const Tensor<T>& other);
+
         // Other member functions...
-        T getT();
     };
 
     template<typename T>
@@ -104,7 +118,22 @@ namespace ts {
     Tensor<T> div(Tensor<T>& tensor, T value);
 
     template<typename T>
-    Tensor<T> log(Tensor<T>& tensor);
+    Tensor<T> eq(Tensor<T>& t1, Tensor<T>& t2);
+
+    template<typename T>
+    Tensor<T> ne(Tensor<T>& t1, Tensor<T>& t2);
+
+    template<typename T>
+    Tensor<T> le(Tensor<T>& t1, Tensor<T>& t2);
+
+    template<typename T>
+    Tensor<T> lt(Tensor<T>& t1, Tensor<T>& t2);
+
+    template<typename T>
+    Tensor<T> ge(Tensor<T>& t1, Tensor<T>& t2);
+
+    template<typename T>
+    Tensor<T> gt(Tensor<T>& t1, Tensor<T>& t2);
 }
 
 #endif // TENSOR_ACLR_CUH
