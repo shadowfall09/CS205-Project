@@ -13,7 +13,7 @@ namespace ts {
         std::vector<int> shape;
         std::string type;
 
-        Tensor(const std::vector<int>& shape, T defaultValue);
+        Tensor(const std::vector<int> &shape, T defaultValue);
 
         Tensor(std::vector<int> shape, T *data);
 
@@ -21,7 +21,11 @@ namespace ts {
         template<typename U>
         friend std::ostream &operator<<(std::ostream &os, const Tensor<U> &tensor);
 
-        // Other member functions...
+        // indexing: t(1)
+        Tensor<T> operator()(int index);
+
+        // slicing: t(2,{2,4})
+        Tensor<T> operator()(int axis, std::vector<int> indices);
     };
 
     template<typename T>
