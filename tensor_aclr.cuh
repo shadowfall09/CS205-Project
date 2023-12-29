@@ -9,26 +9,32 @@ namespace ts {
     template<typename T>
     class Tensor {
     public:
-            T *data;
-            std::vector<int> shape;
-            std::string type;
+        T *data;
+        std::vector<int> shape;
+        std::string type;
+        int chosenIndex;
+        std::vector<int> chosenIndices;
 
         Tensor(const std::vector<int> &shape, T defaultValue);
 
-        Tensor(const std::vector<int>& shape, T *data);
+        Tensor(const std::vector<int> &shape, T *data);
 
         Tensor(const Tensor<T> &other);
 
         template<typename U>
         friend std::ostream &operator<<(std::ostream &os, const Tensor<U> &tensor);
 
-        explicit operator bool () const;
+        explicit operator bool() const;
 
         // indexing
         Tensor<T> operator()(int index);
 
         // slicing
         Tensor<T> operator()(int index, std::vector<int> indices);
+
+        // mutating
+        Tensor<T> &operator=(T value);
+        Tensor<T> &operator=(std::initializer_list<T> values);
 
         // add
         Tensor<T> add(const Tensor<T> &other);

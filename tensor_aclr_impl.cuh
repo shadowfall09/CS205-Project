@@ -11,7 +11,7 @@
 #include <cmath>
 
 namespace ts {
-    // ======= Class Constructor =======
+    // ======= Tensor Constructor =======
     /**
      * @brief Construct a new Tensor object, filled with the given value
      * @tparam T
@@ -21,7 +21,10 @@ namespace ts {
      */
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape, T defaultValue)
-            :  shape(shape), type(typeid(T).name()) {
+            :  shape(shape),
+               type(typeid(T).name()),
+               chosenIndex(-1),
+               chosenIndices() {
         cudaMallocManaged(&data, totalSize(shape) * sizeof(T));
         std::fill(data, data + totalSize(shape), defaultValue);
     }
@@ -35,7 +38,11 @@ namespace ts {
      */
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape, T *data)
-            : data(data), shape(shape), type(typeid(T).name()) {}
+            : data(data),
+              shape(shape),
+              type(typeid(T).name()),
+              chosenIndex(-1),
+              chosenIndices() {}
 
     /**
      * @brief Construct a new Tensor object from another Tensor object
@@ -45,7 +52,11 @@ namespace ts {
      */
     template<typename T>
     Tensor<T>::Tensor(const Tensor<T> &other)
-            : data(other.data), shape(other.shape), type(other.type) {}
+            : data(other.data),
+              shape(other.shape),
+              type(other.type),
+              chosenIndex(other.chosenIndex),
+              chosenIndices(other.chosenIndices) {}
 
     // ======= Class Constructor End =======
 
@@ -264,6 +275,7 @@ namespace ts {
         std::vector<int> new_shape = shape;
         new_shape.erase(new_shape.begin());
         Tensor<T> tensor(new_shape, data + index * totalSize(new_shape));
+        tensor.chosenIndex = index;
         return tensor;
     }
 
@@ -291,6 +303,8 @@ namespace ts {
 
         Tensor<T> tensor(new_shape,
                          data + index * old_element_count + indices[0] * new_element_count);
+        tensor.chosenIndex = index;
+        tensor.chosenIndices = indices;
         return tensor;
     }
 
@@ -298,11 +312,11 @@ namespace ts {
 
     // ------- 2.2 Joining -------
     /**
-     * @brief Join the given tensors along the given dimension
+     * @brief Concatenate the given tensors along the given dimension
      * @tparam T
      * @param tensors
      * @param dim
-     * @return The joined tensor
+     * @return The concatenated tensor
      */
     template<typename T>
     Tensor<T> cat(std::vector<Tensor<T>> &tensors, int dim) {
@@ -345,6 +359,13 @@ namespace ts {
         return result;
     }
 
+    /**
+     * @brief Multiply the given tensors along the given dimension
+     * @tparam T The type of the tensor
+     * @param tensor The given tensor
+     * @param shape The shape of the multiplier
+     * @return The tiled tensor
+     */
     template<typename T>
     Tensor<T> tile(Tensor<T> &tensor, std::vector<int> shape) {
         assert(tensor);
@@ -397,6 +418,36 @@ namespace ts {
             linear_index += index[i];
         }
         return linear_index;
+    }
+
+    // ------- 2.2 Joining End -------
+
+    // ------- 2.3 Mutating -------
+    template<typename T>
+    Tensor<T> &Tensor<T>::operator=(T value) {
+        assert(*this && this->shape.size() == 1);
+
+        int element_count = totalSize(shape);
+        std::fill(data, data + element_count, value);
+        return *this;
+    }
+
+    template<typename T>
+    Tensor<T> &Tensor<T>::operator=(std::initializer_list<T> values) {
+        assert(*this);
+        assert(!chosenIndices.empty());
+        int start = chosenIndices[0],
+                end = chosenIndices[1];
+        assert(0 <= start && start < end);
+        assert(values.size() == end - start);
+
+        std::vector<int> new_shape = shape;
+        new_shape.erase(new_shape.begin());
+        int element_count = totalSize(new_shape);
+        for (int i = 0; i < values.size(); ++i) {
+            std::fill(data + i * element_count, data + (i + 1) * element_count, *(values.begin() + i));
+        }
+        return *this;
     }
 
 
