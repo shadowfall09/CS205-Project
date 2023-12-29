@@ -17,57 +17,80 @@ namespace ts {
 
         Tensor(std::vector<int> shape, T *data);
 
-        Tensor(const Tensor<T>& other);
+        Tensor(const Tensor<T> &other);
 
         template<typename U>
         friend std::ostream &operator<<(std::ostream &os, const Tensor<U> &tensor);
 
-        // indexing: t(1)
+        // indexing
         Tensor<T> operator()(int index);
 
-        // slicing: t(2,{2,4})
-        Tensor<T> operator()(int axis, std::vector<int> indices);
+        // slicing
+        Tensor<T> operator()(int index, std::vector<int> indices);
 
         // add
-        Tensor<T> add(const Tensor<T>& other);
+        Tensor<T> add(const Tensor<T> &other);
+
         Tensor<T> add(T value);
-        Tensor<T> operator+(const Tensor<T>& other);
+
+        Tensor<T> operator+(const Tensor<T> &other);
+
         Tensor<T> operator+(T value);
 
         // subtract
-        Tensor<T> sub(const Tensor<T>& other);
+        Tensor<T> sub(const Tensor<T> &other);
+
         Tensor<T> sub(T value);
-        Tensor<T> operator-(const Tensor<T>& other);
+
+        Tensor<T> operator-(const Tensor<T> &other);
+
         Tensor<T> operator-(T value);
 
         // multiply
-        Tensor<T> mul(const Tensor<T>& other);
+        Tensor<T> mul(const Tensor<T> &other);
+
         Tensor<T> mul(T value);
-        Tensor<T> operator*(const Tensor<T>& other);
+
+        Tensor<T> operator*(const Tensor<T> &other);
+
         Tensor<T> operator*(T value);
 
         //divide
-        Tensor<T> div(const Tensor<T>& other);
+        Tensor<T> div(const Tensor<T> &other);
+
         Tensor<T> div(T value);
-        Tensor<T> operator/(const Tensor<T>& other);
+
+        Tensor<T> operator/(const Tensor<T> &other);
+
         Tensor<T> operator/(T value);
 
         //log
         Tensor<T> log();
 
         //eq, ne, gt, ge, lt, le.
-        Tensor<bool> eq(const Tensor<T>& other);
-        Tensor<bool> operator==(const Tensor<T>& other);
-        Tensor<bool> ne(const Tensor<T>& other);
-        Tensor<bool> operator!=(const Tensor<T>& other);
-        Tensor<bool> le(const Tensor<T>& other);
-        Tensor<bool> operator<=(const Tensor<T>& other);
-        Tensor<bool> lt(const Tensor<T>& other);
-        Tensor<bool> operator<(const Tensor<T>& other);
-        Tensor<bool> ge(const Tensor<T>& other);
-        Tensor<bool> operator>=(const Tensor<T>& other);
-        Tensor<bool> gt(const Tensor<T>& other);
-        Tensor<bool> operator>(const Tensor<T>& other);
+        Tensor<bool> eq(const Tensor<T> &other);
+
+        Tensor<bool> operator==(const Tensor<T> &other);
+
+        Tensor<bool> ne(const Tensor<T> &other);
+
+        Tensor<bool> operator!=(const Tensor<T> &other);
+
+        Tensor<bool> le(const Tensor<T> &other);
+
+        Tensor<bool> operator<=(const Tensor<T> &other);
+
+        Tensor<bool> lt(const Tensor<T> &other);
+
+        Tensor<bool> operator<(const Tensor<T> &other);
+
+        Tensor<bool> ge(const Tensor<T> &other);
+
+        Tensor<bool> operator>=(const Tensor<T> &other);
+
+        Tensor<bool> gt(const Tensor<T> &other);
+
+        Tensor<bool> operator>(const Tensor<T> &other);
 
         // Other member functions...
     };
@@ -94,46 +117,49 @@ namespace ts {
     Tensor<T> eye(int shape);
 
     template<typename T>
-    Tensor<T> add(Tensor<T>& t1, Tensor<T>& t2);
+    Tensor<T> cat(std::vector<Tensor<T>> &tensors, int dim);
 
     template<typename T>
-    Tensor<T> add(Tensor<T>& tensor, T value);
+    Tensor<T> add(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> sub(Tensor<T>& t1, Tensor<T>& t2);
+    Tensor<T> add(Tensor<T> &tensor, T value);
 
     template<typename T>
-    Tensor<T> sub(Tensor<T>& tensor, T value);
+    Tensor<T> sub(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> mul(Tensor<T>& t1, Tensor<T>& t2);
+    Tensor<T> sub(Tensor<T> &tensor, T value);
 
     template<typename T>
-    Tensor<T> mul(Tensor<T>& tensor, T value);
+    Tensor<T> mul(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> div(Tensor<T>& t1, Tensor<T>& t2);
+    Tensor<T> mul(Tensor<T> &tensor, T value);
 
     template<typename T>
-    Tensor<T> div(Tensor<T>& tensor, T value);
+    Tensor<T> div(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> eq(Tensor<T>& t1, Tensor<T>& t2);
+    Tensor<T> div(Tensor<T> &tensor, T value);
 
     template<typename T>
-    Tensor<T> ne(Tensor<T>& t1, Tensor<T>& t2);
+    Tensor<T> eq(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> le(Tensor<T>& t1, Tensor<T>& t2);
+    Tensor<T> ne(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> lt(Tensor<T>& t1, Tensor<T>& t2);
+    Tensor<T> le(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> ge(Tensor<T>& t1, Tensor<T>& t2);
+    Tensor<T> lt(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> gt(Tensor<T>& t1, Tensor<T>& t2);
+    Tensor<T> ge(Tensor<T> &t1, Tensor<T> &t2);
+
+    template<typename T>
+    Tensor<T> gt(Tensor<T> &t1, Tensor<T> &t2);
 }
 
 #endif // TENSOR_ACLR_CUH

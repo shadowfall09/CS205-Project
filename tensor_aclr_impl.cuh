@@ -11,68 +11,6 @@
 #include <cmath>
 
 namespace ts {
-    // ======= Random Part =======
-    const double MIN_RANDOM = 0, MAX_RANDOM = 10;
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_real_distribution<> dis(MIN_RANDOM, MAX_RANDOM);
-
-    /**
-     * @brief Generate a random number between MIN_RANDOM and MAX_RANDOM
-     * @return A random number between MIN_RANDOM and MAX_RANDOM
-     */
-    double random() {
-        return dis(gen);
-    }
-    // ======= Random Part End =======
-
-    // Helper function to calculate total shape from shape
-    /**
-     * @brief Calculate total size from shape
-     * @param shape
-     * @return Total size from shape
-     */
-    int totalSize(const std::vector<int> &shape) {
-        return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
-    }
-
-    // Helper function to print tensor
-    /**
-     * @brief Print tensor
-     * @tparam T
-     * @param os
-     * @param tensor
-     */
-    template<typename T>
-    std::ostream &operator<<(std::ostream &os, const Tensor<T> &tensor) {
-        int dimension = 0;
-        int spaces = -1;
-        int data_size = totalSize(tensor.shape);
-        for (int i = 0; i < tensor.shape.size(); ++i) {
-            os << "[";
-            dimension = tensor.shape[i];
-            spaces++;
-        }
-
-        for (int i = 0; i < data_size; ++i) {
-            os << *(tensor.data + i);
-            if ((i + 1) % dimension == 0 && i != data_size - 1) {
-                os << "],\n";
-                for (int j = 0; j < spaces; ++j) {
-                    os << " ";
-                }
-                os << "[";
-            } else if (i != data_size - 1) {
-                os << ", ";
-            }
-        }
-
-        for (int i = 0; i < tensor.shape.size(); ++i) {
-            os << "]";
-        }
-        return os;
-    }
-
     // ======= Class Constructor =======
     /**
      * @brief Construct a new Tensor object, filled with the given value
@@ -106,13 +44,87 @@ namespace ts {
      * @return A new Tensor object from another Tensor object
      */
     template<typename T>
-    Tensor<T>::Tensor(const Tensor<T> &other) {
-        shape = other.shape;
-        type = other.type;
-        cudaMallocManaged(&data, totalSize(shape) * sizeof(T));
-        cudaMemcpy(data, other.data, totalSize(shape) * sizeof(T), cudaMemcpyDeviceToDevice);
-    }
+    Tensor<T>::Tensor(const Tensor<T> &other)
+            : data(other.data), shape(other.shape), type(other.type) {}
+
     // ======= Class Constructor End =======
+
+
+    // ======= 0. Helper Functions =======
+
+    // ------- Random Part -------
+    const double MIN_RANDOM = 0, MAX_RANDOM = 10;
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<> dis(MIN_RANDOM, MAX_RANDOM);
+
+    /**
+     * @brief Generate a random number between MIN_RANDOM and MAX_RANDOM
+     * @return A random number between MIN_RANDOM and MAX_RANDOM
+     */
+    double random() {
+        return dis(gen);
+    }
+    // ------- Random Part End -------
+
+    // Helper function to calculate total shape from shape
+    /**
+     * @brief Calculate total size from shape
+     * @param shape
+     * @return Total size from shape
+     */
+    int totalSize(const std::vector<int> &shape) {
+        if (shape.empty()) return 1;
+        return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    }
+
+    // Helper function to print tensor
+    template<typename T>
+    std::ostream &operator<<(std::ostream &os, const Tensor<T> &tensor) {
+        printTensor(os, tensor, 0, 0, "");
+        return os;
+    }
+
+    template<typename T>
+    void printTensor(std::ostream &os, const Tensor<T> &tensor, int index, int dimension, const std::string &indent) {
+        if (dimension == tensor.shape.size()) {
+            os << tensor.data[index];
+            return;
+        }
+
+        os << "[";
+        int dimSize = tensor.shape[dimension];
+        int nextIndexStep = (dimension < tensor.shape.size() - 1)
+                            ? totalSize(std::vector<int>(tensor.shape.begin() + dimension + 1, tensor.shape.end()))
+                            : 1;
+        for (int i = 0; i < dimSize; ++i) {
+            if (i > 0) {
+                os << ", ";
+                if (dimension != tensor.shape.size() - 1) {
+                    os << "\n" << indent << std::string(dimension + 1, ' ');
+                }
+            }
+            printTensor(os, tensor, index + i * nextIndexStep, dimension + 1, indent);
+        }
+        os << "]";
+    }
+
+    // deep copy
+    /**
+     * @brief Deep copy
+     * @tparam T
+     * @param other
+     * @return A deep copy of the given tensor
+     */
+    template<typename T>
+    Tensor<T> deepcopy(const Tensor<T> &other) {
+        Tensor<T> result(other);
+        cudaMallocManaged(&result.data, totalSize(result.shape) * sizeof(T));
+        cudaMemcpy(result.data,
+                   other.data,
+                   totalSize(result.shape) * sizeof(T),
+                   cudaMemcpyDeviceToDevice);
+    }
 
     // ======= 1. Creation and Initialization =======
     /**
@@ -205,7 +217,9 @@ namespace ts {
     }
     // ======= 1. Creation and Initialization End =======
 
-    // ======= 2. Indexing and Slicing =======
+    // ======= 2. Tensor Operations =======
+
+    // ------- 2.1 Indexing and Slicing -------
 
     /**
      * @brief Get the element at the given index
@@ -218,27 +232,87 @@ namespace ts {
         std::vector<int> new_shape = shape;
         new_shape.erase(new_shape.begin());
         Tensor<T> tensor(new_shape, data + index * totalSize(new_shape));
+        std::cout << "data address: " << tensor.data << std::endl;
         return tensor;
     }
 
     /**
-     * @brief Get the slice of the tensor at the given axis and indices
+     * @brief Get the slice of the tensor at the given index and indices
      * @tparam T
-     * @param axis
-     * @param indices
-     * @return The slice of the tensor at the given axis and indices
+     * @param index The chosen index of the tensor to be sliced
+     * @param indices The start (included) and end (excluded) indices of the slice
+     * @return The slice of the tensor at the given index and indices
      */
     template<typename T>
-    Tensor<T> Tensor<T>::operator()(int axis, std::vector<int> indices) {
-        if (indices.size() < 2) {
-            throw std::invalid_argument("indices size must be greater than 1");
-        }
+    Tensor<T> Tensor<T>::operator()(int index, std::vector<int> indices) {
+        assert(0 <= index && index < shape[0]);
+        assert(indices.size() == 2 && 0 <= indices[0] && indices[0] < indices[1] && indices[1] <= shape[1]);
 
         std::vector<int> new_shape = shape;
-        new_shape[1] = indices[1] - indices[0];
-        Tensor<T> tensor(new_shape, data + indices[0] * totalSize(new_shape));
+        new_shape.erase(new_shape.begin());
+        int old_element_count = totalSize(new_shape);
+        new_shape[0] = indices[1] - indices[0];
+
+        std::vector<int> temp_shape = new_shape;
+        temp_shape.erase(temp_shape.begin());
+        int new_element_count = totalSize(temp_shape);
+
+        Tensor<T> tensor(new_shape,
+                         data + index * old_element_count + indices[0] * new_element_count);
         return tensor;
     }
+
+    // ------- 2.1 Indexing and Slicing End -------
+
+    // ------- 2.2 Joining -------
+    int indexInFlatArray(const std::vector<int> &index, const std::vector<int> &shape) {
+        int flatIndex = 0;
+        int accum = 1;
+        for (int i = shape.size() - 1; i >= 0; --i) {
+            flatIndex += index[i] * accum;
+            accum *= shape[i];
+        }
+        return flatIndex;
+    }
+
+    template<typename T>
+    Tensor<T> cat(std::vector<Tensor<T>> &tensors, int dim) {
+        assert(!tensors.empty() && dim < tensors[0].shape.size());
+
+        // 计算结果张量的形状
+        std::vector<int> shape = tensors[0].shape;
+        shape[dim] = std::accumulate(tensors.begin(), tensors.end(), 0,
+                                     [dim](int sum, const Tensor<T> &tensor) { return sum + tensor.shape[dim]; });
+
+        Tensor<T> result = ts::tensor(shape, (T) 0);
+
+        int offset = 0; // 在连接维度上的偏移量
+        for (const auto &tensor: tensors) {
+            for (int i = 0; i < tensor.shape[dim]; ++i) {
+                for (int j = 0; j < totalSize(tensor.shape) / tensor.shape[dim]; ++j) {
+                    std::vector<int> index = tensor.shape;
+                    int remaining = j;
+                    for (int k = tensor.shape.size() - 1; k >= 0; --k) {
+                        if (k != dim) {
+                            index[k] = remaining % tensor.shape[k];
+                            remaining /= tensor.shape[k];
+                        } else {
+                            index[k] = i;
+                        }
+                    }
+
+                    int tensorFlatIndex = indexInFlatArray(index, tensor.shape);
+                    index[dim] += offset;
+                    int resultFlatIndex = indexInFlatArray(index, shape);
+                    result.data[resultFlatIndex] = tensor.data[tensorFlatIndex];
+                }
+            }
+            offset += tensor.shape[dim];
+        }
+
+        return result;
+    }
+
 
     // ======= CUDA FUNCTIONS =======
     // Add with scalar
@@ -385,7 +459,7 @@ namespace ts {
     Tensor<T> Tensor<T>::add(const Tensor<T> &other) {
         assert(shape == other.shape);
         assert(type == other.type);
-        Tensor<T> result(*this);
+        Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         addKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -395,7 +469,7 @@ namespace ts {
 
     template<typename T>
     Tensor<T> Tensor<T>::add(T value) {
-        Tensor<T> result(*this);
+        Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         addScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -428,7 +502,7 @@ namespace ts {
     Tensor<T> Tensor<T>::sub(const Tensor<T> &other) {
         assert(shape == other.shape);
         assert(type == other.type);
-        Tensor<T> result(*this);
+        Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         subKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -437,7 +511,7 @@ namespace ts {
 
     template<typename T>
     Tensor<T> Tensor<T>::sub(T value) {
-        Tensor<T> result(*this);
+        Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         subScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -470,7 +544,7 @@ namespace ts {
     Tensor<T> Tensor<T>::mul(const Tensor<T> &other) {
         assert(shape == other.shape);
         assert(type == other.type);
-        Tensor<T> result(*this);
+        Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         mulKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -479,7 +553,7 @@ namespace ts {
 
     template<typename T>
     Tensor<T> Tensor<T>::mul(T value) {
-        Tensor<T> result(*this);
+        Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         mulScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -512,7 +586,7 @@ namespace ts {
     Tensor<T> Tensor<T>::div(const Tensor<T> &other) {
         assert(shape == other.shape);
         assert(type == other.type);
-        Tensor<T> result(*this);
+        Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         divKernel<<<(size + 511) / 512, 512>>>(data, other.data, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -521,7 +595,7 @@ namespace ts {
 
     template<typename T>
     Tensor<T> Tensor<T>::div(T value) {
-        Tensor<T> result(*this);
+        Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         divScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
         cudaDeviceSynchronize();
@@ -552,7 +626,7 @@ namespace ts {
     // ======= 3.1.5 Log ======
     template<typename T>
     Tensor<T> Tensor<T>::log() {
-        Tensor<T> result(*this);
+        Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         logKernel<<<(size + 511) / 512, 512>>>(data, result.data, totalSize(shape));
         cudaDeviceSynchronize();
