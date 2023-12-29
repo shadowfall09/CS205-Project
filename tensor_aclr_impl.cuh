@@ -34,8 +34,8 @@ namespace ts {
      * @return A new Tensor object, filled with the given data
      */
     template<typename T>
-    Tensor<T>::Tensor(std::vector<int> shape, T *data)
-            : data(data), shape(std::move(shape)), type(typeid(T).name()) {}
+    Tensor<T>::Tensor(const std::vector<int> &shape, T *data)
+            : data(data), shape(shape), type(typeid(T).name()) {}
 
     /**
      * @brief Construct a new Tensor object from another Tensor object
@@ -78,13 +78,20 @@ namespace ts {
         return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     }
 
-    // Helper function to print tensor
+    /**
+     * @brief Print tensor
+     * @tparam T
+     * @param os
+     * @param tensor
+     * @return
+     */
     template<typename T>
     std::ostream &operator<<(std::ostream &os, const Tensor<T> &tensor) {
         printTensor(os, tensor, 0, 0, "");
         return os;
     }
 
+    // Helper function to print tensor
     template<typename T>
     void printTensor(std::ostream &os, const Tensor<T> &tensor, int index, int dimension, const std::string &indent) {
         if (dimension == tensor.shape.size()) {
@@ -109,6 +116,22 @@ namespace ts {
         os << "]";
     }
 
+    /**
+     * @brief Get the index in flat array from index and shape
+     * @param index
+     * @param shape
+     * @return The index in flat array from index and shape
+     */
+    int indexInFlatArray(const std::vector<int> &index, const std::vector<int> &shape) {
+        int flatIndex = 0;
+        int accum = 1;
+        for (int i = shape.size() - 1; i >= 0; --i) {
+            flatIndex += index[i] * accum;
+            accum *= shape[i];
+        }
+        return flatIndex;
+    }
+
     // deep copy
     /**
      * @brief Deep copy
@@ -124,6 +147,11 @@ namespace ts {
                    other.data,
                    totalSize(result.shape) * sizeof(T),
                    cudaMemcpyDeviceToDevice);
+    }
+
+    template<typename T>
+    Tensor<T>::operator bool() const {
+        return !shape.empty() && data != nullptr && !type.empty();
     }
 
     // ======= 1. Creation and Initialization =======
@@ -208,10 +236,12 @@ namespace ts {
      * @return An identity matrix of size n
      */
     template<typename T>
-    Tensor<T> eye(int n) {
-        Tensor<T> tensor({n, n}, 0);
+    Tensor<T> eye(std::vector<int> shape) {
+        Tensor<T> tensor(shape, 0);
+        int n = *std::min_element(shape.begin(), shape.end());
         for (int i = 0; i < n; ++i) {
-            tensor.data[i * n + i] = 1;
+            std::vector<int> index(shape.size(), i);
+            tensor.data[indexInFlatArray(index, shape)] = 1;
         }
         return tensor;
     }
@@ -229,10 +259,11 @@ namespace ts {
      */
     template<typename T>
     Tensor<T> Tensor<T>::operator()(int index) {
+        assert(*this);
+
         std::vector<int> new_shape = shape;
         new_shape.erase(new_shape.begin());
         Tensor<T> tensor(new_shape, data + index * totalSize(new_shape));
-        std::cout << "data address: " << tensor.data << std::endl;
         return tensor;
     }
 
@@ -245,6 +276,7 @@ namespace ts {
      */
     template<typename T>
     Tensor<T> Tensor<T>::operator()(int index, std::vector<int> indices) {
+        assert(*this);
         assert(0 <= index && index < shape[0]);
         assert(indices.size() == 2 && 0 <= indices[0] && indices[0] < indices[1] && indices[1] <= shape[1]);
 
@@ -265,18 +297,18 @@ namespace ts {
     // ------- 2.1 Indexing and Slicing End -------
 
     // ------- 2.2 Joining -------
-    int indexInFlatArray(const std::vector<int> &index, const std::vector<int> &shape) {
-        int flatIndex = 0;
-        int accum = 1;
-        for (int i = shape.size() - 1; i >= 0; --i) {
-            flatIndex += index[i] * accum;
-            accum *= shape[i];
-        }
-        return flatIndex;
-    }
-
+    /**
+     * @brief Join the given tensors along the given dimension
+     * @tparam T
+     * @param tensors
+     * @param dim
+     * @return The joined tensor
+     */
     template<typename T>
     Tensor<T> cat(std::vector<Tensor<T>> &tensors, int dim) {
+        for (Tensor<T> &tensor: tensors) {
+            assert(tensor);
+        }
         assert(!tensors.empty() && dim < tensors[0].shape.size());
 
         // 计算结果张量的形状
@@ -311,6 +343,60 @@ namespace ts {
         }
 
         return result;
+    }
+
+    template<typename T>
+    Tensor<T> tile(Tensor<T> &tensor, std::vector<int> shape) {
+        assert(tensor);
+        assert(!shape.empty());
+
+        // 如果 shape 维度多于 tensor 的维度，扩展 tensor 的维度
+        while (tensor.shape.size() < shape.size()) {
+            tensor.shape.insert(tensor.shape.begin(), 1);
+        }
+
+        // 计算新张量的形状
+        std::vector<int> new_shape;
+        for (size_t i = 0; i < shape.size(); ++i) {
+            new_shape.push_back(tensor.shape[i] * shape[i]);
+        }
+
+        // 创建新张量
+        Tensor<T> tiled_tensor(new_shape, T());
+
+        // 对新张量的每个元素进行复制
+        for (int i = 0; i < totalSize(new_shape); ++i) {
+            // 计算在原始张量中的索引
+            std::vector<int> index = calculateIndex(i, new_shape, tensor.shape, shape);
+            int linear_index = linearizeIndex(index, tensor.shape);
+
+            // 复制数据
+            tiled_tensor.data[i] = tensor.data[linear_index];
+        }
+
+        return tiled_tensor;
+    }
+
+    // 辅助函数：将线性索引转换为多维索引
+    std::vector<int> calculateIndex(int linear_index, const std::vector<int> &new_shape,
+                                    const std::vector<int> &original_shape, const std::vector<int> &shape) {
+        std::vector<int> index(original_shape.size(), 0);
+        for (int i = original_shape.size() - 1; i >= 0; --i) {
+            index[i] = (linear_index /
+                        std::accumulate(new_shape.begin() + i + 1, new_shape.end(), 1, std::multiplies<int>())) %
+                       original_shape[i];
+        }
+        return index;
+    }
+
+    // 辅助函数：将多维索引转换为线性索引
+    int linearizeIndex(const std::vector<int> &index, const std::vector<int> &shape) {
+        int linear_index = 0;
+        for (size_t i = 0; i < index.size(); ++i) {
+            linear_index *= shape[i];
+            linear_index += index[i];
+        }
+        return linear_index;
     }
 
 

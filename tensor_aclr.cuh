@@ -9,18 +9,20 @@ namespace ts {
     template<typename T>
     class Tensor {
     public:
-        T *data;
-        std::vector<int> shape;
-        std::string type;
+            T *data;
+            std::vector<int> shape;
+            std::string type;
 
         Tensor(const std::vector<int> &shape, T defaultValue);
 
-        Tensor(std::vector<int> shape, T *data);
+        Tensor(const std::vector<int>& shape, T *data);
 
         Tensor(const Tensor<T> &other);
 
         template<typename U>
         friend std::ostream &operator<<(std::ostream &os, const Tensor<U> &tensor);
+
+        explicit operator bool () const;
 
         // indexing
         Tensor<T> operator()(int index);
@@ -95,6 +97,8 @@ namespace ts {
         // Other member functions...
     };
 
+
+
     template<typename T>
     Tensor<T> tensor(std::vector<int> shape, T *data);
 
@@ -114,10 +118,13 @@ namespace ts {
     Tensor<T> full(std::vector<int> shape, T value);
 
     template<typename T>
-    Tensor<T> eye(int shape);
+    Tensor<T> eye(std::vector<int> shape);
 
     template<typename T>
     Tensor<T> cat(std::vector<Tensor<T>> &tensors, int dim);
+
+    template<typename T>
+    Tensor<T> tile(Tensor<T> &tensor, std::vector<int> shape);
 
     template<typename T>
     Tensor<T> add(Tensor<T> &t1, Tensor<T> &t2);
