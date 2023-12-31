@@ -11,11 +11,14 @@ namespace ts {
     public:
         T *data;
         std::vector<int> shape;
+        std::vector<int> stride;
         std::string type;
 
         Tensor(const std::vector<int> &shape, T defaultValue);
 
         Tensor(const std::vector<int> &shape, T *data);
+
+        Tensor(const std::vector<int> &shape,const std::vector<int> &stride, T *data);
 
         Tensor(const Tensor<T> &other);
 
@@ -33,6 +36,10 @@ namespace ts {
         // mutating
         Tensor<T> &operator=(T value);
         Tensor<T> &operator=(std::initializer_list<T> values);
+
+        // transpose
+        Tensor<T> transpose(int dim0, int dim1);
+        Tensor<T> permute(const std::vector<int>& dims);
 
         // add
         Tensor<T> add(const Tensor<T> &other);
@@ -99,9 +106,8 @@ namespace ts {
         Tensor<bool> operator>(const Tensor<T> &other);
 
         // Other member functions...
+        Tensor<T> trace();
     };
-
-
 
     template<typename T>
     Tensor<T> tensor(std::vector<int> shape, T *data);
@@ -129,6 +135,12 @@ namespace ts {
 
     template<typename T>
     Tensor<T> tile(Tensor<T> &tensor, std::vector<int> shape);
+
+    template<typename T>
+    Tensor<T> permute(Tensor<T> &tensor,const std::vector<int>& dims);
+
+    template<typename T>
+    Tensor<T> transpose(Tensor<T> &tensor, int dim0, int dim1);
 
     template<typename T>
     Tensor<T> add(Tensor<T> &t1, Tensor<T> &t2);

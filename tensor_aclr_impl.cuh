@@ -11,6 +11,18 @@
 #include <cmath>
 
 namespace ts {
+    int totalSize(const std::vector<int> &shape);
+
+    template<typename T>
+    void init_stride(Tensor<T> &tensor) {
+        tensor.stride.resize(tensor.shape.size());
+        int stride = 1;
+        for(int i = tensor.shape.size() - 1; i >= 0; --i) {
+            tensor.stride[i] = stride;
+            stride *= tensor.shape[i];
+        }
+    }
+
     // ======= Tensor Constructor =======
     /**
      * @brief Construct a new Tensor object, filled with the given value
@@ -22,9 +34,11 @@ namespace ts {
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape, T defaultValue)
             :  shape(shape),
+               stride(),
                type(typeid(T).name()){
         cudaMallocManaged(&data, totalSize(shape) * sizeof(T));
         std::fill(data, data + totalSize(shape), defaultValue);
+        init_stride(*this);
     }
 
     /**
@@ -38,7 +52,25 @@ namespace ts {
     Tensor<T>::Tensor(const std::vector<int> &shape, T *data)
             : data(data),
               shape(shape),
-              type(typeid(T).name()) {}
+              type(typeid(T).name()),
+              stride(){
+                  init_stride(*this);
+              }
+
+    /**
+    * @brief Construct a new Tensor object, filled with the given data
+    * @tparam T
+    * @param shape
+    * @param data
+    * @param stride
+    * @return A new Tensor object, filled with the given data
+    */
+    template<typename T>
+    Tensor<T>::Tensor(const std::vector<int> &shape,const std::vector<int> &stride, T *data)
+            : data(data),
+              shape(shape),
+              type(typeid(T).name()),
+              stride(stride){}
 
     /**
      * @brief Construct a new Tensor object from another Tensor object
@@ -50,7 +82,8 @@ namespace ts {
     Tensor<T>::Tensor(const Tensor<T> &other)
             : data(other.data),
               shape(other.shape),
-              type(other.type) {}
+              type(other.type),
+              stride(other.stride){}
 
     // ======= Class Constructor End =======
 
@@ -265,10 +298,11 @@ namespace ts {
     template<typename T>
     Tensor<T> Tensor<T>::operator()(int index) {
         assert(*this);
-
         std::vector<int> new_shape = shape;
         new_shape.erase(new_shape.begin());
-        Tensor<T> tensor(new_shape, data + index * totalSize(new_shape));
+        std::vector<int> new_stride = stride;
+        new_stride.erase(new_stride.begin());
+        Tensor<T> tensor(new_shape,new_stride, data + index * stride[0]);
         return tensor;
     }
 
@@ -287,15 +321,12 @@ namespace ts {
 
         std::vector<int> new_shape = shape;
         new_shape.erase(new_shape.begin());
-        int old_element_count = totalSize(new_shape);
         new_shape[0] = indices[1] - indices[0];
+        std::vector<int> new_stride = stride;
+        new_stride.erase(new_stride.begin());
 
-        std::vector<int> temp_shape = new_shape;
-        temp_shape.erase(temp_shape.begin());
-        int new_element_count = totalSize(temp_shape);
-
-        Tensor<T> tensor(new_shape,
-                         data + index * old_element_count + indices[0] * new_element_count);
+        Tensor<T> tensor(new_shape,new_stride,
+                         data + index * stride[0] + indices[0] * new_stride[0]);
         return tensor;
     }
 
@@ -435,6 +466,37 @@ namespace ts {
             std::fill(data + i * element_count, data + (i + 1) * element_count, *(values.begin() + i));
         }
         return *this;
+    }
+
+    // ------- 2.4 Permutation -------
+    // transpose
+    template<typename T>
+    Tensor<T> Tensor<T>::transpose(int dim0, int dim1) {
+        std::swap(this->shape[dim0], this->shape[dim1]);
+        std::swap(this->stride[dim0], this->stride[dim1]);
+        return *this;
+    }
+
+    //permute
+    template<typename T>
+    Tensor<T> Tensor<T>::permute(const std::vector<int>& dims) {
+        std::vector<int> origin_shape = shape;
+        std::vector<int> origin_stride = stride;
+        for(int i = 0; i < this->shape.size(); ++i) {
+            this->shape[i] = origin_shape[dims[i]];
+            this->stride[i] = origin_stride[dims[i]];
+        }
+        return *this;
+    }
+
+    template<typename T>
+    Tensor<T> permute(Tensor<T> &tensor,const std::vector<int>& dims){
+        return tensor.permute(dims);
+    }
+
+    template<typename T>
+    Tensor<T> transpose(Tensor<T> &tensor, int dim0, int dim1){
+        return tensor.transpose(dim0,dim1);
     }
 
 
@@ -899,6 +961,21 @@ namespace ts {
     }
 
     // ======= 3.3 Comparison operations End =======
+
+    // ====== EINSUM helper functions ======
+    template<typename T>
+    Tensor<T> Tensor<T>::trace() {
+        int shape_size = shape[0];
+        for (int i : shape){
+            if (i!=shape_size){
+                throw std::invalid_argument("input tensor is not a square tensor");
+            }
+        }
+        return 0;
+    }
+
+    // ====== EINSUM helper functions END ======
+
 }
 
 #endif // TENSOR_ACLR_IMPL_CUH
