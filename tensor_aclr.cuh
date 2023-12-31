@@ -41,6 +41,9 @@ namespace ts {
         Tensor<T> transpose(int dim0, int dim1);
         Tensor<T> permute(const std::vector<int>& dims);
 
+        // view
+        Tensor<T> view(const std::vector<int>& shape);
+
         // add
         Tensor<T> add(const Tensor<T> &other);
 
@@ -141,6 +144,9 @@ namespace ts {
 
     template<typename T>
     Tensor<T> transpose(Tensor<T> &tensor, int dim0, int dim1);
+
+    template<typename T>
+    Tensor<T> view(Tensor<T> &tensor,const std::vector<int>& shape);
 
     template<typename T>
     Tensor<T> add(Tensor<T> &t1, Tensor<T> &t2);

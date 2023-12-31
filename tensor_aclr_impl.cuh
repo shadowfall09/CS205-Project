@@ -436,7 +436,7 @@ namespace ts {
         std::vector<int> index(original_shape.size(), 0);
         for (int i = original_shape.size() - 1; i >= 0; --i) {
             index[i] = (linear_index /
-                        std::accumulate(new_shape.begin() + i + 1, new_shape.end(), 1, std::multiplies<int>())) %
+                        std::accumulate(new_shape.begin() + i + 1, new_shape.end(), 1, std::multiplies<>())) %
                        original_shape[i];
         }
         return index;
@@ -455,25 +455,64 @@ namespace ts {
     // ------- 2.2 Joining End -------
 
     // ------- 2.3 Mutating -------
+//    template<typename T>
+//    Tensor<T> &Tensor<T>::operator=(T value) {
+//        assert(*this && this->shape.size() == 1);
+//
+//        int element_count = totalSize(shape);
+//        std::fill(data, data + element_count, value);
+//        return *this;
+//    }
+//
+//    template<typename T>
+//    Tensor<T> &Tensor<T>::operator=(std::initializer_list<T> values) {
+//        assert(*this);
+//        assert(values.size() == shape[0]);
+//
+//        std::vector<int> new_shape = shape;
+//        new_shape.erase(new_shape.begin());
+//        int element_count = totalSize(new_shape);
+//        for (int i = 0; i < values.size(); ++i) {
+//            std::fill(data + i * element_count, data + (i + 1) * element_count, *(values.begin() + i));
+//        }
+//        return *this;
+//    }
+
+    std::vector<int> calculate_indices(int linear_index, const std::vector<int>& shape) {
+        std::vector<int> indices(shape.size());
+        for(int i = shape.size() - 1; i >= 0; --i) {
+            indices[i] = linear_index % shape[i];
+            linear_index /= shape[i];
+        }
+        return indices;
+    }
+
     template<typename T>
     Tensor<T> &Tensor<T>::operator=(T value) {
-        assert(*this && this->shape.size() == 1);
+        assert(!this->shape.empty());
 
-        int element_count = totalSize(shape);
-        std::fill(data, data + element_count, value);
+        int element_count = std::accumulate(this->shape.begin(), this->shape.end(), 1, std::multiplies<int>());
+        for(int i = 0; i < element_count; ++i) {
+            std::vector<int> indices = calculate_indices(i, this->shape);
+            get_value(*this, indices) = value;
+        }
         return *this;
     }
 
     template<typename T>
     Tensor<T> &Tensor<T>::operator=(std::initializer_list<T> values) {
-        assert(*this);
-        assert(values.size() == shape[0]);
+        assert(!this->shape.empty());
+        assert(values.size() == this->shape[0]);
 
-        std::vector<int> new_shape = shape;
+        std::vector<int> new_shape = this->shape;
         new_shape.erase(new_shape.begin());
-        int element_count = totalSize(new_shape);
-        for (int i = 0; i < values.size(); ++i) {
-            std::fill(data + i * element_count, data + (i + 1) * element_count, *(values.begin() + i));
+        int element_count = std::accumulate(new_shape.begin(), new_shape.end(), 1, std::multiplies<int>());
+        auto it = values.begin();
+        for (int i = 0; i < values.size(); ++i, ++it) {
+            for(int j = 0; j < element_count; ++j) {
+                std::vector<int> indices = calculate_indices(i * element_count + j, this->shape);
+                get_value(*this, indices) = *it;
+            }
         }
         return *this;
     }
@@ -507,6 +546,38 @@ namespace ts {
     template<typename T>
     Tensor<T> transpose(Tensor<T> &tensor, int dim0, int dim1){
         return tensor.transpose(dim0,dim1);
+    }
+
+    // ------- 2.5 View -------
+    // 是否经历转置导致data不连续
+    template<typename T>
+    bool is_contiguous(const Tensor<T>& t) {
+        int stride = 1;
+        for(int i = t.shape.size() - 1; i >= 0; --i) {
+            if(t.stride[i] != stride)
+                return false;
+            stride *= t.shape[i];
+        }
+        return true;
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::view(const std::vector<int>& shape0) {
+        if (!is_contiguous(*this)){
+            throw std::invalid_argument("input tensor is not contiguous");
+        }
+        int stride0 = 1;
+        for(int i = shape.size() - 1; i >= 0; --i) {
+            this->shape[i] = shape0[i];
+            this->stride[i] = stride0;
+            stride0 *= shape0[i];
+        }
+        return *this;
+    }
+
+    template<typename T>
+    Tensor<T> view(Tensor<T> &tensor,const std::vector<int>& shape0){
+        return tensor.view(shape0);
     }
 
 
@@ -846,6 +917,7 @@ namespace ts {
 
     template<typename T>
     Tensor<bool> Tensor<T>::eq(const Tensor<T> &other) {
+        assert(data)
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
@@ -857,6 +929,7 @@ namespace ts {
 
     template<typename T>
     Tensor<bool> Tensor<T>::ne(const Tensor<T> &other) {
+        assert(data);
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
@@ -868,6 +941,7 @@ namespace ts {
 
     template<typename T>
     Tensor<bool> Tensor<T>::gt(const Tensor<T> &other) {
+        assert(data);
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
@@ -879,6 +953,7 @@ namespace ts {
 
     template<typename T>
     Tensor<bool> Tensor<T>::ge(const Tensor<T> &other) {
+        assert(data);
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
@@ -890,6 +965,7 @@ namespace ts {
 
     template<typename T>
     Tensor<bool> Tensor<T>::lt(const Tensor<T> &other) {
+        assert(data);
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
@@ -901,6 +977,7 @@ namespace ts {
 
     template<typename T>
     Tensor<bool> Tensor<T>::le(const Tensor<T> &other) {
+        assert(data);
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
