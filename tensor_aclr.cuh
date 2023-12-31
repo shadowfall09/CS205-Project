@@ -12,8 +12,6 @@ namespace ts {
         T *data;
         std::vector<int> shape;
         std::string type;
-        int chosenIndex;
-        std::vector<int> chosenIndices;
 
         Tensor(const std::vector<int> &shape, T defaultValue);
 

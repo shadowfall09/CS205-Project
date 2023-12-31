@@ -22,9 +22,7 @@ namespace ts {
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape, T defaultValue)
             :  shape(shape),
-               type(typeid(T).name()),
-               chosenIndex(-1),
-               chosenIndices() {
+               type(typeid(T).name()){
         cudaMallocManaged(&data, totalSize(shape) * sizeof(T));
         std::fill(data, data + totalSize(shape), defaultValue);
     }
@@ -40,9 +38,7 @@ namespace ts {
     Tensor<T>::Tensor(const std::vector<int> &shape, T *data)
             : data(data),
               shape(shape),
-              type(typeid(T).name()),
-              chosenIndex(-1),
-              chosenIndices() {}
+              type(typeid(T).name()) {}
 
     /**
      * @brief Construct a new Tensor object from another Tensor object
@@ -54,9 +50,7 @@ namespace ts {
     Tensor<T>::Tensor(const Tensor<T> &other)
             : data(other.data),
               shape(other.shape),
-              type(other.type),
-              chosenIndex(other.chosenIndex),
-              chosenIndices(other.chosenIndices) {}
+              type(other.type) {}
 
     // ======= Class Constructor End =======
 
@@ -275,7 +269,6 @@ namespace ts {
         std::vector<int> new_shape = shape;
         new_shape.erase(new_shape.begin());
         Tensor<T> tensor(new_shape, data + index * totalSize(new_shape));
-        tensor.chosenIndex = index;
         return tensor;
     }
 
@@ -303,8 +296,6 @@ namespace ts {
 
         Tensor<T> tensor(new_shape,
                          data + index * old_element_count + indices[0] * new_element_count);
-        tensor.chosenIndex = index;
-        tensor.chosenIndices = indices;
         return tensor;
     }
 
@@ -435,11 +426,7 @@ namespace ts {
     template<typename T>
     Tensor<T> &Tensor<T>::operator=(std::initializer_list<T> values) {
         assert(*this);
-        assert(!chosenIndices.empty());
-        int start = chosenIndices[0],
-                end = chosenIndices[1];
-        assert(0 <= start && start < end);
-        assert(values.size() == end - start);
+        assert(values.size() == shape[0]);
 
         std::vector<int> new_shape = shape;
         new_shape.erase(new_shape.begin());
