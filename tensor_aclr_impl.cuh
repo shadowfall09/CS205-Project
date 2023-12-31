@@ -139,9 +139,10 @@ namespace ts {
 
         os << "[";
         int dimSize = tensor.shape[dimension];
-        int nextIndexStep = (dimension < tensor.shape.size() - 1)
-                            ? totalSize(std::vector<int>(tensor.shape.begin() + dimension + 1, tensor.shape.end()))
-                            : 1;
+//        int nextIndexStep = (dimension < tensor.shape.size() - 1)
+//                            ? totalSize(std::vector<int>(tensor.shape.begin() + dimension + 1, tensor.shape.end()))
+//                            : 1;
+        int nextIndexStep = tensor.stride[dimension];
         for (int i = 0; i < dimSize; ++i) {
             if (i > 0) {
                 os << ", ";
@@ -149,7 +150,7 @@ namespace ts {
                     os << "\n" << indent << std::string(dimension + 1, ' ');
                 }
             }
-            printTensor(os, tensor, index + i * nextIndexStep, dimension + 1, indent);
+            printTensor(os, tensor, index + i * nextIndexStep, dimension + 1, indent + " ");
         }
         os << "]";
     }
@@ -190,6 +191,15 @@ namespace ts {
     template<typename T>
     Tensor<T>::operator bool() const {
         return !shape.empty() && data != nullptr && !type.empty();
+    }
+
+    //get a value from data
+    template<typename T>
+    T& get_value(Tensor<T>& t, const std::vector<int>& inds) {
+        int offset = 0;
+        for(int i = 0; i < t.shape.size(); ++i)
+            offset += inds[i] * t.stride[i];
+        return t.data[offset];
     }
 
     // ======= 1. Creation and Initialization =======
