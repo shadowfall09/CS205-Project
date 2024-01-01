@@ -17,9 +17,10 @@ int main() {
 
 
 //    t(2)=1;
-    std::cout << t(2) << std::endl;
-    std::cout << t(2,1) << endl;
+//    std::cout << t(2) << std::endl;
+//    std::cout << t(2,1) << endl;
     cout<<t(2,{2,4},1)<<endl;
+    cout<<t(2,{2,4})<<endl;
 //    std::cout << t << std::endl;
     return 0;
 }

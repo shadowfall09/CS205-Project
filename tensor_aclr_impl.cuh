@@ -338,19 +338,7 @@ namespace ts {
      */
     template<typename T>
     Tensor<T> Tensor<T>::operator()(int index, std::vector<int> indices) {
-        assert(*this);
-        assert(0 <= index && index < shape[0]);
-        assert(indices.size() == 2 && 0 <= indices[0] && indices[0] < indices[1] && indices[1] <= shape[1]);
-
-        std::vector<int> new_shape = shape;
-        new_shape.erase(new_shape.begin());
-        new_shape[0] = indices[1] - indices[0];
-        std::vector<int> new_stride = stride;
-        new_stride.erase(new_stride.begin());
-
-        Tensor<T> tensor(new_shape,new_stride,
-                         data + index * stride[0] + indices[0] * new_stride[0]);
-        return tensor;
+        return this->operator()(index,indices,0);
     }
 
     /**
@@ -361,19 +349,18 @@ namespace ts {
      * @param dim
      * @return The slice of the tensor at the given index and indices
      */
-//    template<typename T>
-//    Tensor<T> Tensor<T>::operator()(int index, std::vector<int> indices,int dim) {
-//        assert(*this);
-//        assert(0 <= index && index < shape[dim]);
-//        assert(indices.size() == 2 && 0 <= indices[0] && indices[0] < indices[1] && indices[1] <= shape[1]);
-//        Tensor<T> tensor0 = this->operator()(index, dim);
-//        std::cout<<tensor0<<std::endl;
-//        std::vector<int> new_shape = tensor0.shape;
-//        new_shape[0] = indices[1] - indices[0];
-//        Tensor<T> tensor(new_shape,tensor0.stride,
-//                         data + indices[0] * tensor0.stride[dim]);
-//        return tensor;
-//    }
+    template<typename T>
+    Tensor<T> Tensor<T>::operator()(int index, std::vector<int> indices,int dim) {
+        assert(*this);
+        assert(0 <= index && index < shape[dim]);
+        assert(indices.size() == 2 && 0 <= indices[0] && indices[0] < indices[1] && indices[1] <= shape[1]);
+        Tensor<T> tensor0 = this->operator()(index, dim);
+        std::vector<int> new_shape = tensor0.shape;
+        new_shape[0] = indices[1] - indices[0];
+        Tensor<T> tensor(new_shape,tensor0.stride,
+                         tensor0.data + indices[0] * tensor0.stride[0]);
+        return tensor;
+    }
 
 
     // ------- 2.1 Indexing and Slicing End -------
