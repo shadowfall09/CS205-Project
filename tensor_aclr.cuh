@@ -85,6 +85,18 @@ namespace ts {
         //log
         Tensor<T> log();
 
+        //sum
+        Tensor<T> sum(int dim);
+
+        //mean
+        Tensor<T> mean(int dim);
+
+        //max
+        Tensor<T> max(int dim);
+
+        //min
+        Tensor<T> min(int dim);
+
         //eq, ne, gt, ge, lt, le.
         Tensor<bool> eq(const Tensor<T> &other);
 
@@ -191,6 +203,21 @@ namespace ts {
 
     template<typename T>
     Tensor<T> gt(Tensor<T> &t1, Tensor<T> &t2);
+
+    template<typename T>
+    void getData(std::vector<T> &V, const Tensor<T> &tensor, int index, int dimension);
+
+    template<typename T>
+    Tensor<T> newTensor(const Tensor<T> &tensor, const std::vector<int> &shape);
+
+    template<typename T>
+    Tensor<T> sum(Tensor<T> &t, int dim);
+
+    template<typename T>
+    Tensor<T> max(Tensor<T> &t, int dim);
+
+    template<typename T>
+    Tensor<T> min(Tensor<T> &t, int dim);
 }
 
 #endif // TENSOR_ACLR_CUH

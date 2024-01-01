@@ -54,8 +54,8 @@ namespace ts {
               shape(shape),
               type(typeid(T).name()),
               stride(){
-                  init_stride(*this);
-              }
+        init_stride(*this);
+    }
 
     /**
     * @brief Construct a new Tensor object, filled with the given data
@@ -154,6 +154,59 @@ namespace ts {
         }
         os << "]";
     }
+
+    // Helper function to get initial value from a type
+//    template<typename T>
+//    T Tensor<T>::getT() {
+//        T initial_type;
+//        if (type == typeid(int).name()){
+//            initial_type = 0;
+//        }else if (type == typeid(double).name() || type == typeid(float).name()){
+//            initial_type = 0.0f;
+//        }else if (type == typeid(bool).name()){
+//            initial_type = false;
+//        }
+//        return initial_type;
+//    }
+
+    // Helper function to get new tensor
+    template<typename T>
+    void getData(std::vector<T> &V, const Tensor<T> &tensor, int index, int dimension) {
+        if (dimension == tensor.shape.size()) {
+            V.push_back(tensor.data[index]);
+            return;
+        }
+        int dimSize = tensor.shape[dimension];
+        int nextIndexStep = tensor.stride[dimension];
+        for (int i = 0; i < dimSize; ++i) {
+            getData(V, tensor, index + i * nextIndexStep, dimension + 1);
+        }
+    }
+    template<typename T>
+    T getT(const Tensor<T> &tensor){
+        T initial_type;
+        if (tensor.type == typeid(int).name()){
+            initial_type = 0;
+        }else if (tensor.type == typeid(double).name() || tensor.type == typeid(float).name()){
+            initial_type = 0.0f;
+        }else if (tensor.type == typeid(bool).name()){
+            initial_type = false;
+        }
+        return initial_type;
+    }
+
+    // Helper function to construct a new tensor with given data vector
+    template<typename T>
+    Tensor<T> newTensor(const Tensor<T> &tensor, const std::vector<int> &shape) {
+        ts::Tensor new_tensor(shape,getT(tensor));
+        std::vector<T> V;
+        getData(V,tensor,0,0);
+        for(int i = 0; i < V.size(); i++){
+            new_tensor.data[i] = V[i];
+        }
+        return new_tensor;
+    }
+
 
     /**
      * @brief Get the index in flat array from index and shape
@@ -949,12 +1002,131 @@ namespace ts {
 
     // ======= 3.1 Pointwise operations End =======
 
+
+
+    // ======= 3.2 Reduction operations =======
+
+    // ======= 3.2.1 Sum ======
+    template<typename T>
+    Tensor<T> sum(Tensor<T> &tensor, int dim) {
+        assert(dim <= tensor.shape.size());
+//        std::cout << tensor.getT() << std::endl;
+        Tensor<T> result(tensor(0, dim).shape, getT(tensor));
+        for (int i = 0; i < tensor.shape[dim]; i++){
+            Tensor<T>tmp(tensor(0, dim).shape,getT(tensor));
+            tmp = newTensor(tensor(i,dim),tensor(i,dim).shape);
+            for(int j = 0; j < totalSize(result.shape); j++){
+                result.data[j] += tmp.data[j];
+            }
+        }
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::sum(int dim) {
+        return ts::sum(*this, dim);
+    }
+
+    // ======= 3.2.1 Sum End======
+
+    // ======= 3.2.2 Mean ======
+    template<typename T>
+    Tensor<T> mean(Tensor<T> &tensor, int dim) {
+        assert(dim <= tensor.shape.size());
+        Tensor<T> result(tensor(0, dim).shape, getT(tensor));
+        for (int i = 0; i < tensor.shape[dim]; i++){
+            Tensor<T>tmp(tensor(0, dim).shape,getT(tensor));
+            tmp = newTensor(tensor(i,dim),tensor(i,dim).shape);
+            for(int j = 0; j < totalSize(result.shape); j++){
+                result.data[j] += tmp.data[j];
+            }
+        }
+
+        for(int i = 0; i < totalSize(result.shape); i++){
+            result.data[i] = result.data[i]/tensor.shape[dim];
+        }
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::mean(int dim) {
+        return ts::mean(*this, dim);
+    }
+
+    // ======= 3.2.2 Mean End======
+
+    // ======= 3.2.3 Max ======
+    template<typename T>
+    Tensor<T> max(Tensor<T>& tensor1, Tensor<T>& tensor2){
+        assert(tensor1.shape == tensor2.shape);
+        ts::Tensor result = ts::tensor(tensor1.shape, new T[totalSize(tensor1.shape)]);
+        int size = totalSize(tensor1.shape);
+        for (int i = 0; i < size; i++)
+        {
+            result.data[i] = std::max(tensor1.data[i],tensor2.data[i]);
+        }
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> max(Tensor<T> &tensor, int dim) {
+        assert(dim <= tensor.shape.size());
+        Tensor<T> result(tensor(0, dim).shape, std::numeric_limits<T>::min());
+        for (int i = 0; i < tensor.shape[dim]; i++){
+            Tensor<T>tmp(tensor(0, dim).shape,getT(tensor));
+            tmp = newTensor(tensor(i,dim),tensor(i,dim).shape);
+            result = max(result,tmp);
+        }
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::max(int dim) {
+        return ts::max(*this, dim);
+    }
+
+    // ======= 3.2.1 Max End ======
+
+    // ======= 3.2.4 Min ======
+    template<typename T>
+    Tensor<T> min(Tensor<T>& tensor1, Tensor<T>& tensor2){
+        assert(tensor1.shape == tensor2.shape);
+        ts::Tensor result = ts::tensor(tensor1.shape, new T[totalSize(tensor1.shape)]);
+        int size = totalSize(tensor1.shape);
+        for (int i = 0; i < size; i++)
+        {
+            result.data[i] = std::min(tensor1.data[i],tensor2.data[i]);
+        }
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> min(Tensor<T> &tensor, int dim) {
+        assert(dim <= tensor.shape.size());
+        Tensor<T> result(tensor(0, dim).shape, std::numeric_limits<T>::max());
+        for (int i = 0; i < tensor.shape[dim]; i++){
+            Tensor<T>tmp(tensor(0, dim).shape,getT(tensor));
+            tmp = newTensor(tensor(i,dim),tensor(i,dim).shape);
+            result = min(result,tmp);
+        }
+        return result;
+    }
+
+    template<typename T>
+    Tensor<T> Tensor<T>::min(int dim) {
+        return ts::min(*this, dim);
+    }
+
+    // ======= 3.2.4 Min End ======
+
+    // ======= 3.2 Reduction operations End =======
+
     // ======= 3.3 Comparison operations =======
 
     template<typename T>
     Tensor<bool> Tensor<T>::eq(const Tensor<T> &other) {
         assert(data)
-        assert(shape == other.shape);
+                assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
         int size = shape.size();
