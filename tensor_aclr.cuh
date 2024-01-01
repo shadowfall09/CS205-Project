@@ -205,6 +205,9 @@ namespace ts {
     Tensor<T> gt(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
+    Tensor<T> einsum(std::string command,std::initializer_list<Tensor<T>> tensors);
+
+    template<typename T>
     void getData(std::vector<T> &V, const Tensor<T> &tensor, int index, int dimension);
 
     template<typename T>

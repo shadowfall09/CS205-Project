@@ -9,6 +9,10 @@
 #include <utility>
 #include <cassert>
 #include <cmath>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <cctype>
 
 namespace ts {
     int totalSize(const std::vector<int> &shape);
@@ -1245,6 +1249,8 @@ namespace ts {
     // ======= 3.3 Comparison operations End =======
 
     // ====== EINSUM helper functions ======
+
+    // trace
     template<typename T>
     Tensor<T> Tensor<T>::trace() {
         int shape_size = shape[0];
@@ -1256,17 +1262,76 @@ namespace ts {
         T trace = (T)0;
         std::vector<int> inds;
         inds.reserve(shape.size());
+        for (int i  = 0; i<shape.size();i++) {
+            inds.push_back(i);
+        }
         for (int t  = 0; t<shape_size;t++){
             for (int i  = 0; i<shape.size();i++) {
                 inds[i]=t;
             }
             trace+=get_value(*this,inds);
         }
-        T * data0=&trace;
-        return tensor({1},data0);
+        return tensor({1},trace);
+    }
+
+    std::pair<std::vector<std::string>, std::string> splitCommand(const std::string& command) {
+        std::pair<std::vector<std::string>, std::string> result;
+        std::stringstream ss(command);
+        std::string item;
+
+        while (std::getline(ss, item, ',')) {
+            size_t arrowPos = item.find("->");
+            if (arrowPos != std::string::npos) {
+                result.second = item.substr(arrowPos + 2);
+                item = item.substr(0, arrowPos);
+            }
+            result.first.push_back(item);
+        }
+
+        return result;
+    }
+
+    bool hasOnlyOneLetter(const std::string& str) {
+        int letterCount = 0;
+        for (char c : str) {
+            if (std::isalpha(c)) {
+                ++letterCount;
+                if (letterCount > 1) {
+                    return false;
+                }
+            }
+        }
+        return letterCount == 1;
     }
 
     // ====== EINSUM helper functions END ======
+
+    // ====== 3.4 EINSUM ======
+    template<typename T>
+    Tensor<T> einsum(std::string command, std::initializer_list<Tensor<T>> tensors_list) {
+        auto commands = splitCommand(command);
+        std::vector<std::string> input_tensor_index = commands.first;
+        std::string output_tensor_index = commands.second;
+        std::vector<Tensor<T>> tensors(tensors_list);
+        if (input_tensor_index.size()!=tensors.size()){
+            throw std::invalid_argument("input tensors does not match the instruction");
+        }
+        for (int i = 0;i<input_tensor_index.size();i++){
+            std::cout<<input_tensor_index[i].length()<<std::endl;
+            if ((int)input_tensor_index[i].length()!=(int)tensors[i].shape.size()){
+                throw std::invalid_argument("input tensors does not match the instruction");
+            }
+        }
+        if (input_tensor_index.size()==1&& hasOnlyOneLetter(input_tensor_index[0])){
+            if (output_tensor_index.empty()){
+
+            }else if (output_tensor_index.size()==1){
+
+            }else throw std::invalid_argument("input tensors does not match the instruction");
+        }
+        return tensor({1},1.0);
+    }
+    // ====== 3.4 EINSUM END ======
 
 }
 
