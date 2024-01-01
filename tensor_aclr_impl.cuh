@@ -307,14 +307,27 @@ namespace ts {
      */
     template<typename T>
     Tensor<T> Tensor<T>::operator()(int index) {
+        return this->operator()(index, 0);
+    }
+
+    /**
+     * @brief Get the element at the given index from the given dimension
+     * @tparam T
+     * @param index
+     * @param dim
+     * @return The element at the given index and dimension
+     */
+    template<typename T>
+    Tensor<T> Tensor<T>::operator()(int index,int dim) {
         assert(*this);
         std::vector<int> new_shape = shape;
-        new_shape.erase(new_shape.begin());
+        new_shape.erase(new_shape.begin()+dim);
         std::vector<int> new_stride = stride;
-        new_stride.erase(new_stride.begin());
-        Tensor<T> tensor(new_shape,new_stride, data + index * stride[0]);
+        new_stride.erase(new_stride.begin()+dim);
+        Tensor<T> tensor(new_shape,new_stride, data + index * stride[dim]);
         return tensor;
     }
+
 
     /**
      * @brief Get the slice of the tensor at the given index and indices
@@ -339,6 +352,29 @@ namespace ts {
                          data + index * stride[0] + indices[0] * new_stride[0]);
         return tensor;
     }
+
+    /**
+     * @brief Get the slice of the tensor at the given index and indices and dimension
+     * @tparam T
+     * @param index The chosen index of the tensor to be sliced
+     * @param indices The start (included) and end (excluded) indices of the slice
+     * @param dim
+     * @return The slice of the tensor at the given index and indices
+     */
+//    template<typename T>
+//    Tensor<T> Tensor<T>::operator()(int index, std::vector<int> indices,int dim) {
+//        assert(*this);
+//        assert(0 <= index && index < shape[dim]);
+//        assert(indices.size() == 2 && 0 <= indices[0] && indices[0] < indices[1] && indices[1] <= shape[1]);
+//        Tensor<T> tensor0 = this->operator()(index, dim);
+//        std::cout<<tensor0<<std::endl;
+//        std::vector<int> new_shape = tensor0.shape;
+//        new_shape[0] = indices[1] - indices[0];
+//        Tensor<T> tensor(new_shape,tensor0.stride,
+//                         data + indices[0] * tensor0.stride[dim]);
+//        return tensor;
+//    }
+
 
     // ------- 2.1 Indexing and Slicing End -------
 
@@ -1058,7 +1094,17 @@ namespace ts {
                 throw std::invalid_argument("input tensor is not a square tensor");
             }
         }
-        return 0;
+        T trace = (T)0;
+        std::vector<int> inds;
+        inds.reserve(shape.size());
+        for (int t  = 0; t<shape_size;t++){
+            for (int i  = 0; i<shape.size();i++) {
+                inds[i]=t;
+            }
+            trace+=get_value(*this,inds);
+        }
+        T * data0=&trace;
+        return tensor({1},data0);
     }
 
     // ====== EINSUM helper functions END ======

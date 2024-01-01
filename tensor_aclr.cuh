@@ -29,9 +29,11 @@ namespace ts {
 
         // indexing
         Tensor<T> operator()(int index);
+        Tensor<T> operator()(int index,int dim);
 
         // slicing
         Tensor<T> operator()(int index, std::vector<int> indices);
+        Tensor<T> operator()(int index, std::vector<int> indices, int dim);
 
         // mutating
         Tensor<T> &operator=(T value);
