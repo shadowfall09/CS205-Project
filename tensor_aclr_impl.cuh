@@ -54,10 +54,12 @@ namespace ts {
      */
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape, T *data)
-            : data(data),
-              shape(shape),
+            : shape(shape),
               type(typeid(T).name()),
               stride(){
+        size_t size = totalSize(shape) * sizeof(T);
+        cudaMallocManaged(&(this->data), size);
+        cudaMemcpy(this->data, data, size, cudaMemcpyHostToHost);
         init_stride(*this);
     }
 
@@ -71,10 +73,13 @@ namespace ts {
     */
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape,const std::vector<int> &stride, T *data)
-            : data(data),
-              shape(shape),
+            : shape(shape),
               type(typeid(T).name()),
-              stride(stride){}
+              stride(stride){
+        size_t size = totalSize(shape) * sizeof(T);
+        cudaMallocManaged(&(this->data), size);
+        cudaMemcpy(this->data, data, size, cudaMemcpyHostToHost);
+              }
 
     /**
      * @brief Construct a new Tensor object from another Tensor object
@@ -159,19 +164,64 @@ namespace ts {
         os << "]";
     }
 
-    // Helper function to get initial value from a type
-//    template<typename T>
-//    T Tensor<T>::getT() {
-//        T initial_type;
-//        if (type == typeid(int).name()){
-//            initial_type = 0;
-//        }else if (type == typeid(double).name() || type == typeid(float).name()){
-//            initial_type = 0.0f;
-//        }else if (type == typeid(bool).name()){
-//            initial_type = false;
-//        }
-//        return initial_type;
-//    }
+    /**
+     * @brief Get tensor's data (continuous)
+     * @tparam T
+     * @param os
+     * @param tensor
+     * @return
+     */
+    template<typename T>
+    T* getTensorData(const Tensor<T> &tensor) {
+        T * data;
+        size_t size = totalSize(tensor.shape) * sizeof(T);
+        cudaMallocManaged(&data, size);
+        int pointer = 0;
+        getTData(tensor, 0, 0, data, pointer);
+        return data;
+    }
+
+    // Helper function to get tensor's data (continuous)
+    template<typename T>
+    void getTData(const Tensor<T> &tensor, int index, int dimension, T* data, int& pointer) {
+        if (dimension == tensor.shape.size()) {
+            data[pointer++] = tensor.data[index];
+            return;
+        }
+        int dimSize = tensor.shape[dimension];
+        int nextIndexStep = tensor.stride[dimension];
+        for (int i = 0; i < dimSize; ++i) {
+            getTData(tensor, index + i * nextIndexStep, dimension + 1, data, pointer);
+        }
+    }
+
+    /**
+     * @brief Input tensor's data (from continuous to origin)
+     * @tparam T
+     * @param os
+     * @param tensor
+     * @return
+     */
+    template<typename T>
+    void inputTensorData(Tensor<T> &tensor, T * data) {
+        int pointer = 0;
+        inputTData(tensor, 0, 0, data, pointer);
+    }
+
+    // Helper function to get tensor's data (continuous)
+    template<typename T>
+    void inputTData(Tensor<T> &tensor, int index, int dimension, T* data, int& pointer) {
+        if (dimension == tensor.shape.size()) {
+            tensor.data[index]=data[pointer++];
+            return;
+        }
+        int dimSize = tensor.shape[dimension];
+        int nextIndexStep = tensor.stride[dimension];
+        for (int i = 0; i < dimSize; ++i) {
+            inputTData(tensor, index + i * nextIndexStep, dimension + 1, data, pointer);
+        }
+    }
+
 
     // Helper function to get new tensor
     template<typename T>
@@ -236,13 +286,9 @@ namespace ts {
      * @return A deep copy of the given tensor
      */
     template<typename T>
-    Tensor<T> deepcopy(const Tensor<T> &other) {
-        Tensor<T> result(other);
-        cudaMallocManaged(&result.data, totalSize(result.shape) * sizeof(T));
-        cudaMemcpy(result.data,
-                   other.data,
-                   totalSize(result.shape) * sizeof(T),
-                   cudaMemcpyDeviceToDevice);
+    Tensor<T> deepcopy(const Tensor<T> other) {
+        Tensor<T> result=Tensor(other.shape,other.stride,other.data);
+        return result;
     }
 
     template<typename T>
@@ -673,7 +719,7 @@ namespace ts {
 
     // Add
     template<typename T>
-    __global__ void addKernel(T *data1, T *data2, T *data3, int size) {
+    __global__ void addKernel(const T *data1,const T *data2, T *data3, int size) {
         int index = threadIdx.x + blockIdx.x * blockDim.x;
         if (index < size) {
             data3[index] = data1[index] + data2[index];
@@ -1274,6 +1320,30 @@ namespace ts {
         return tensor({1},trace);
     }
 
+    // diagonal
+    template<typename T>
+    Tensor<T> Tensor<T>::diagonal() {
+        int shape_size = shape[0];
+        for (int i : shape){
+            if (i!=shape_size){
+                throw std::invalid_argument("input tensor is not a square tensor");
+            }
+        }
+        T* diagonal = new T[shape_size];
+        std::vector<int> inds;
+        inds.reserve(shape.size());
+        for (int i  = 0; i<shape.size();i++) {
+            inds.push_back(i);
+        }
+        for (int t  = 0; t<shape_size;t++){
+            for (int i  = 0; i<shape.size();i++) {
+                inds[i]=t;
+            }
+            diagonal[t]=get_value(*this,inds);
+        }
+        return tensor({shape_size},diagonal);
+    }
+
     std::pair<std::vector<std::string>, std::string> splitCommand(const std::string& command) {
         std::pair<std::vector<std::string>, std::string> result;
         std::stringstream ss(command);
@@ -1291,17 +1361,22 @@ namespace ts {
         return result;
     }
 
-    bool hasOnlyOneLetter(const std::string& str) {
-        int letterCount = 0;
+    bool isSingleChar(const std::string& str) {
         for (char c : str) {
-            if (std::isalpha(c)) {
-                ++letterCount;
-                if (letterCount > 1) {
-                    return false;
-                }
+            if (c != str[0]) {
+                return false;
             }
         }
-        return letterCount == 1;
+        return true;
+    }
+
+    bool isReverseAlphabetical(const std::string& str) {
+        for (std::size_t i = 0; i < str.size() - 1; ++i) {
+            if (str[i] < str[i + 1]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // ====== EINSUM helper functions END ======
@@ -1317,19 +1392,22 @@ namespace ts {
             throw std::invalid_argument("input tensors does not match the instruction");
         }
         for (int i = 0;i<input_tensor_index.size();i++){
-            std::cout<<input_tensor_index[i].length()<<std::endl;
             if ((int)input_tensor_index[i].length()!=(int)tensors[i].shape.size()){
                 throw std::invalid_argument("input tensors does not match the instruction");
             }
         }
-        if (input_tensor_index.size()==1&& hasOnlyOneLetter(input_tensor_index[0])){
+        // trace & diagonal
+        if (input_tensor_index.size()==1&& isSingleChar(input_tensor_index[0])){
             if (output_tensor_index.empty()){
-
-            }else if (output_tensor_index.size()==1){
-
+                return tensors[0].trace();
+            }else if (output_tensor_index.size()==1&&output_tensor_index[0]==input_tensor_index[0][0]){
+                return tensors[0].diagonal();
             }else throw std::invalid_argument("input tensors does not match the instruction");
         }
-        return tensor({1},1.0);
+
+        if (input_tensor_index.size()==1&&output_tensor_index.empty()&& isReverseAlphabetical(input_tensor_index[0])){
+        }
+        throw std::invalid_argument("input tensors does not match the instruction");
     }
     // ====== 3.4 EINSUM END ======
 

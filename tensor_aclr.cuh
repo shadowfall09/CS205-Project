@@ -6,6 +6,7 @@
 #include <iostream>
 
 namespace ts {
+    static bool acceleration = true;
     template<typename T>
     class Tensor {
     public:
@@ -124,7 +125,10 @@ namespace ts {
 
         // Other member functions...
         Tensor<T> trace();
+
+        Tensor<T> diagonal();
     };
+
 
     template<typename T>
     Tensor<T> tensor(std::vector<int> shape, T *data);
