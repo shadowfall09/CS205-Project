@@ -165,64 +165,6 @@ namespace ts {
         os << "]";
     }
 
-    /**
-     * @brief Get tensor's data (continuous)
-     * @tparam T
-     * @param os
-     * @param tensor
-     * @return
-     */
-    template<typename T>
-    T* getTensorData(const Tensor<T> &tensor) {
-        T * data;
-        size_t size = totalSize(tensor.shape) * sizeof(T);
-        cudaMallocManaged(&data, size);
-        int pointer = 0;
-        getTData(tensor, 0, 0, data, pointer);
-        return data;
-    }
-
-    // Helper function to get tensor's data (continuous)
-    template<typename T>
-    void getTData(const Tensor<T> &tensor, int index, int dimension, T* data, int& pointer) {
-        if (dimension == tensor.shape.size()) {
-            data[pointer++] = tensor.data[index];
-            return;
-        }
-        int dimSize = tensor.shape[dimension];
-        int nextIndexStep = tensor.stride[dimension];
-        for (int i = 0; i < dimSize; ++i) {
-            getTData(tensor, index + i * nextIndexStep, dimension + 1, data, pointer);
-        }
-    }
-
-    /**
-     * @brief Input tensor's data (from continuous to origin)
-     * @tparam T
-     * @param os
-     * @param tensor
-     * @return
-     */
-    template<typename T>
-    void inputTensorData(Tensor<T> &tensor, T * data) {
-        int pointer = 0;
-        inputTData(tensor, 0, 0, data, pointer);
-    }
-
-    // Helper function to get tensor's data (continuous)
-    template<typename T>
-    void inputTData(Tensor<T> &tensor, int index, int dimension, T* data, int& pointer) {
-        if (dimension == tensor.shape.size()) {
-            tensor.data[index]=data[pointer++];
-            return;
-        }
-        int dimSize = tensor.shape[dimension];
-        int nextIndexStep = tensor.stride[dimension];
-        for (int i = 0; i < dimSize; ++i) {
-            inputTData(tensor, index + i * nextIndexStep, dimension + 1, data, pointer);
-        }
-    }
-
     // Helper function to get shape of tensor
     template<typename T>
     void Tensor<T>::printShape() {
@@ -234,7 +176,7 @@ namespace ts {
     }
 
 
-    // Helper function to get new tensor
+    // Helper function to get data
     template<typename T>
     void getData(std::vector<T> &V, const Tensor<T> &tensor, int index, int dimension) {
         if (dimension == tensor.shape.size()) {
@@ -1058,7 +1000,6 @@ namespace ts {
     template<typename T>
     Tensor<T> sum(Tensor<T> &tensor, int dim) {
         assert(dim <= tensor.shape.size());
-//        std::cout << tensor.getT() << std::endl;
         Tensor<T> result(tensor(0, dim).shape, getT(tensor));
         for (int i = 0; i < tensor.shape[dim]; i++){
             Tensor<T>tmp(tensor(0, dim).shape,getT(tensor));
@@ -1133,7 +1074,7 @@ namespace ts {
         return ts::max(*this, dim);
     }
 
-    // ======= 3.2.1 Max End ======
+    // ======= 3.2.3 Max End ======
 
     // ======= 3.2.4 Min ======
     template<typename T>
