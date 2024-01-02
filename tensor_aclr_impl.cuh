@@ -13,6 +13,7 @@
 #include <vector>
 #include <string>
 #include <cctype>
+#include <iostream>
 
 namespace ts {
     int totalSize(const std::vector<int> &shape);
@@ -220,6 +221,16 @@ namespace ts {
         for (int i = 0; i < dimSize; ++i) {
             inputTData(tensor, index + i * nextIndexStep, dimension + 1, data, pointer);
         }
+    }
+
+    // Helper function to get shape of tensor
+    template<typename T>
+    void Tensor<T>::printShape() {
+        std::cout<<"[ ";
+        for (int i:shape) {
+            std::cout<<i<<" ";
+        }
+        std::cout<<"]"<<std::endl;
     }
 
 
@@ -1370,13 +1381,32 @@ namespace ts {
         return true;
     }
 
-    bool isReverseAlphabetical(const std::string& str) {
-        for (std::size_t i = 0; i < str.size() - 1; ++i) {
-            if (str[i] < str[i + 1]) {
-                return false;
-            }
+    std::vector<int> sort_indexes(const std::string &str) {
+        std::vector<int> idx(str.size());
+        for (size_t i = 0; i != idx.size(); ++i) idx[i] = i;
+
+        std::sort(idx.begin(), idx.end(),
+                  [&str](size_t i1, size_t i2) {return str[i1] < str[i2];});
+        return idx;
+    }
+
+    std::vector<int> get_indexes(const std::string &str1, const std::string &str2) {
+        std::unordered_map<char, int> char_to_index;
+        for (int i = 0; i < str1.size(); ++i) {
+            char_to_index[str1[i]] = i;
         }
-        return true;
+        std::vector<int> indexes;
+        for (char c : str2) {
+            if (char_to_index.find(c) == char_to_index.end()) {
+                throw std::runtime_error("Character not found in the first string");
+            }
+            indexes.push_back(char_to_index[c]);
+        }
+        return indexes;
+    }
+
+    bool isAllAlpha(const std::string &str) {
+        return std::all_of(str.begin(), str.end(), [](char c){ return ::isalpha(c) || c == '.'; });
     }
 
     // ====== EINSUM helper functions END ======
@@ -1392,10 +1422,17 @@ namespace ts {
             throw std::invalid_argument("input tensors does not match the instruction");
         }
         for (int i = 0;i<input_tensor_index.size();i++){
+            if (!isAllAlpha(input_tensor_index[i])){
+                throw std::invalid_argument("input tensors does not match the instruction");
+            }
             if ((int)input_tensor_index[i].length()!=(int)tensors[i].shape.size()){
                 throw std::invalid_argument("input tensors does not match the instruction");
             }
         }
+        if (!isAllAlpha(output_tensor_index)){
+            throw std::invalid_argument("input tensors does not match the instruction");
+        }
+
         // trace & diagonal
         if (input_tensor_index.size()==1&& isSingleChar(input_tensor_index[0])){
             if (output_tensor_index.empty()){
@@ -1405,8 +1442,24 @@ namespace ts {
             }else throw std::invalid_argument("input tensors does not match the instruction");
         }
 
-        if (input_tensor_index.size()==1&&output_tensor_index.empty()&& isReverseAlphabetical(input_tensor_index[0])){
+        // permute
+        if (input_tensor_index.size()==1&&output_tensor_index.empty()){
+            std::vector<int> idx = sort_indexes(input_tensor_index[0]);
+            return tensors[0].permute(idx);
         }
+        if (input_tensor_index.size()==1&&input_tensor_index[0].size()==output_tensor_index.size()){
+            std::vector<int> idx = get_indexes(input_tensor_index[0],output_tensor_index);
+            return tensors[0].permute(idx);
+        }
+
+        // Vector inner products
+        if (input_tensor_index.size()==2&&input_tensor_index[0].size()==1&&input_tensor_index[0]==input_tensor_index[1]&&output_tensor_index.empty()){
+            return tensors[0].mul(tensors[1]).sum(0);
+        }
+
+        //
+
+
         throw std::invalid_argument("input tensors does not match the instruction");
     }
     // ====== 3.4 EINSUM END ======

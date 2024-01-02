@@ -127,6 +127,8 @@ namespace ts {
         Tensor<T> trace();
 
         Tensor<T> diagonal();
+
+        void printShape();
     };
 
 
