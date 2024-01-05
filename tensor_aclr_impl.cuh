@@ -1531,6 +1531,23 @@ namespace ts {
         return std::all_of(str.begin(), str.end(), [](char c) { return ::isalpha(c) || c == '.'; });
     }
 
+    template<typename T>
+    Tensor<T> checkOrder(std::vector<int>& idx, Tensor<T> tensor){
+        ts::Tensor<T> tensor_new = ts::deepcopy(tensor);
+        for(int i = 0; i < idx.size(); i++){
+            for(int j = i; j < idx.size(); j++){
+                if(idx[i]>idx[j]){
+                    tensor_new.transpose(idx[j], idx[i]);
+                    int tmp = idx[j];
+                    idx[j] = idx[i];
+                    idx[i] = tmp;
+                }
+            }
+        }
+        return tensor_new;
+    }
+
+
     // ====== EINSUM helper functions END ======
 
     // ====== 3.4 EINSUM ======
@@ -1580,9 +1597,21 @@ namespace ts {
             return tensors[0].mul(tensors[1]).sum(0);
         }
 
-        //
-
-
+        //Sum over an axis
+        if(tensors_list.size()==1 && input_tensor_index.size()==1 && output_tensor_index.size() <= tensors[0].shape.size()){
+            std::vector<int> idx = get_indexes(input_tensor_index[0],output_tensor_index);
+            ts::Tensor result = checkOrder(idx, tensors[0]);
+            int cnt = 0;
+            for(int i = 0; i < tensors[0].shape.size(); i++){
+                auto it = std::find(idx.begin(), idx.end(), i);
+                if (it == idx.end()) {
+                    // Value not found in the vector
+                    result = ts::sum(result,i-cnt);
+                    cnt++;
+                }
+            }
+            return result;
+        }
         throw std::invalid_argument("input tensors does not match the instruction");
     }
     // ====== 3.4 EINSUM END ======
