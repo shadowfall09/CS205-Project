@@ -4,16 +4,26 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include "cereal/cereal.hpp"
+#include "cereal/archives/json.hpp"
+#include <fstream>
+#include <memory>
 
 namespace ts {
     static bool acceleration = true;
     template<typename T>
     class Tensor {
     public:
-        T *data;
+        T* data;
         std::vector<int> shape;
         std::vector<int> stride;
         std::string type;
+
+        // 声明序列化函数
+        template <class Archive>
+        void serialize(Archive &archive) {
+            archive(data, shape, stride, type);
+        }
 
         Tensor(const std::vector<int> &shape, T defaultValue);
 
