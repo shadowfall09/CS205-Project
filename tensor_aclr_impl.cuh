@@ -56,11 +56,11 @@ namespace ts {
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape, T *data)
             : data(data),
-            shape(shape),
+              shape(shape),
               type(typeid(T).name()),
               stride() {
         init_stride(*this);
-              }
+    }
 
     /**
     * @brief Construct a new Tensor object, filled with the given data
@@ -73,7 +73,7 @@ namespace ts {
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape, const std::vector<int> &stride, T *data)
             : data(data),
-            shape(shape),
+              shape(shape),
               type(typeid(T).name()),
               stride(stride) {}
 
@@ -211,22 +211,6 @@ namespace ts {
     }
 
 
-    /**
-     * @brief Get the index in flat array from index and shape
-     * @param index
-     * @param shape
-     * @return The index in flat array from index and shape
-     */
-    int indexInFlatArray(const std::vector<int> &index, const std::vector<int> &shape) {
-        int flatIndex = 0;
-        int accum = 1;
-        for (int i = shape.size() - 1; i >= 0; --i) {
-            flatIndex += index[i] * accum;
-            accum *= shape[i];
-        }
-        return flatIndex;
-    }
-
     // deep copy
     /**
      * @brief Deep copy
@@ -238,7 +222,7 @@ namespace ts {
     Tensor<T> deepcopy(const Tensor<T> other) {
         Tensor<T> result = Tensor(other.shape, other.stride, other.data);
         result.data = new T[totalSize(other.shape)];
-        std::memcpy(result.data, other.data, totalSize(other.shape)*sizeof(T));
+        std::memcpy(result.data, other.data, totalSize(other.shape) * sizeof(T));
         return result;
     }
 
@@ -290,11 +274,11 @@ namespace ts {
     template<typename T>
     Tensor<T> rand(std::vector<int> shape) {
         Tensor<T> tensor(shape, nullptr);
-        T * data = new T[totalSize(shape)];
+        T *data = new T[totalSize(shape)];
         for (int i = 0; i < totalSize(shape); ++i) {
-            data[i] = random();
+            data[i] = (T) random();
         }
-        tensor.data=data;
+        tensor.data = data;
         return tensor;
     }
 
@@ -306,7 +290,7 @@ namespace ts {
      */
     template<typename T>
     Tensor<T> zeros(std::vector<int> shape) {
-        return Tensor<T>(shape, 0);
+        return Tensor<T>(shape, (T) 0);
     }
 
     /**
@@ -317,7 +301,7 @@ namespace ts {
      */
     template<typename T>
     Tensor<T> ones(std::vector<int> shape) {
-        return Tensor<T>(shape, 1);
+        return Tensor<T>(shape, (T) 1);
     }
 
     /**
@@ -333,6 +317,22 @@ namespace ts {
     }
 
     /**
+     * @brief Get the index in flat array from index and shape
+     * @param index
+     * @param shape
+     * @return The index in flat array from index and shape
+     */
+    int indexInFlatArray(const std::vector<int> &index, const std::vector<int> &shape) {
+        int flatIndex = 0;
+        int accum = 1;
+        for (int i = shape.size() - 1; i >= 0; --i) {
+            flatIndex += index[i] * accum;
+            accum *= shape[i];
+        }
+        return flatIndex;
+    }
+
+    /**
      * @brief Create an identity matrix of size n
      * @tparam T
      * @param n
@@ -344,7 +344,7 @@ namespace ts {
         int n = *std::min_element(shape.begin(), shape.end());
         for (int i = 0; i < n; ++i) {
             std::vector<int> index(shape.size(), i);
-            tensor.data[indexInFlatArray(index, shape)] = 1;
+            tensor.data[indexInFlatArray(index, shape)] = (T) 1;
         }
         return tensor;
     }
@@ -421,114 +421,106 @@ namespace ts {
     // ------- 2.1 Indexing and Slicing End -------
 
     // ------- 2.2 Joining -------
-    /**
-     * @brief Concatenate the given tensors along the given dimension
-     * @tparam T
-     * @param tensors
-     * @param dim
-     * @return The concatenated tensor
-     */
     template<typename T>
     Tensor<T> cat(std::vector<Tensor<T>> &tensors, int dim) {
-        for (Tensor<T> &tensor: tensors) {
-            assert(tensor);
+        // 检查维度一致性
+        if (tensors.empty()) {
+            throw std::invalid_argument("No tensors provided for concatenation.");
         }
-        assert(!tensors.empty() && dim < tensors[0].shape.size());
-
-        // 计算结果张量的形状
-        std::vector<int> shape = tensors[0].shape;
-        shape[dim] = std::accumulate(tensors.begin(), tensors.end(), 0,
-                                     [dim](int sum, const Tensor<T> &tensor) { return sum + tensor.shape[dim]; });
-
-        Tensor<T> result = ts::tensor(shape, (T) 0);
-
-        int offset = 0; // 在连接维度上的偏移量
+        int num_dims = tensors[0].shape.size();
         for (const auto &tensor: tensors) {
-            for (int i = 0; i < tensor.shape[dim]; ++i) {
-                for (int j = 0; j < totalSize(tensor.shape) / tensor.shape[dim]; ++j) {
-                    std::vector<int> index = tensor.shape;
-                    int remaining = j;
-                    for (int k = tensor.shape.size() - 1; k >= 0; --k) {
+            if (tensor.shape.size() != num_dims) {
+                throw std::invalid_argument("All tensors must have the same number of dimensions.");
+            }
+        }
+
+        // 计算新张量的形状
+        std::vector<int> new_shape = tensors[0].shape;
+        for (size_t i = 1; i < tensors.size(); ++i) {
+            new_shape[dim] += tensors[i].shape[dim];
+        }
+
+        // 创建新张量并初始化为0
+        Tensor<T> result = ts::zeros<T>(new_shape);
+
+        // 拼接数据
+        int offset = 0;
+        for (const auto &tensor: tensors) {
+            int tensor_dim_size = tensor.shape[dim];
+            for (int i = 0; i < tensor_dim_size; ++i) {
+                for (int j = 0; j < totalSize(tensor.shape) / tensor_dim_size; ++j) {
+                    // 计算在原张量中的线性索引
+                    std::vector<int> src_indices(num_dims, 0);
+                    src_indices[dim] = i;
+                    int src_linear_index = 0;
+                    for (int k = 0; k < num_dims; ++k) {
+                        int stride_index = j;
                         if (k != dim) {
-                            index[k] = remaining % tensor.shape[k];
-                            remaining /= tensor.shape[k];
+                            stride_index %= tensor.shape[k];
                         } else {
-                            index[k] = i;
+                            stride_index = i;
                         }
+                        src_linear_index += stride_index * tensor.stride[k];
                     }
 
-                    int tensorFlatIndex = indexInFlatArray(index, tensor.shape);
-                    index[dim] += offset;
-                    int resultFlatIndex = indexInFlatArray(index, shape);
-                    result.data[resultFlatIndex] = tensor.data[tensorFlatIndex];
+                    // 计算在新张量中的线性索引
+                    std::vector<int> dest_indices = src_indices;
+                    dest_indices[dim] += offset;
+                    int dest_linear_index = 0;
+                    for (int k = 0; k < num_dims; ++k) {
+                        int stride_index = j;
+                        if (k != dim) {
+                            stride_index %= new_shape[k];
+                        } else {
+                            stride_index = offset + i;
+                        }
+                        dest_linear_index += stride_index * result.stride[k];
+                    }
+
+                    // 复制数据
+                    result.data[dest_linear_index] = tensor.data[src_linear_index];
                 }
             }
-            offset += tensor.shape[dim];
+            offset += tensor_dim_size;
         }
 
         return result;
     }
 
-    /**
-     * @brief Multiply the given tensors along the given dimension
-     * @tparam T The type of the tensor
-     * @param tensor The given tensor
-     * @param shape The shape of the multiplier
-     * @return The tiled tensor
-     */
+
     template<typename T>
     Tensor<T> tile(Tensor<T> &tensor, std::vector<int> shape) {
-        assert(tensor);
-        assert(!shape.empty());
-
-        // 如果 shape 维度多于 tensor 的维度，扩展 tensor 的维度
-        while (tensor.shape.size() < shape.size()) {
-            tensor.shape.insert(tensor.shape.begin(), 1);
+        // 检查维度一致性
+        if (tensor.shape.size() != shape.size()) {
+            throw std::invalid_argument("Shape of tensor and tile shape must have the same number of dimensions.");
         }
 
-        // 计算新张量的形状
+        // 创建新张量并初始化为0
         std::vector<int> new_shape;
         for (size_t i = 0; i < shape.size(); ++i) {
             new_shape.push_back(tensor.shape[i] * shape[i]);
         }
+        Tensor<T> result = ts::zeros<T>(new_shape);
 
-        // 创建新张量
-        Tensor<T> tiled_tensor(new_shape, T());
-
-        // 对新张量的每个元素进行复制
+        // Tile 数据
         for (int i = 0; i < totalSize(new_shape); ++i) {
-            // 计算在原始张量中的索引
-            std::vector<int> index = calculateIndex(i, new_shape, tensor.shape, shape);
-            int linear_index = linearizeIndex(index, tensor.shape);
+            std::vector<int> indices = calculate_indices(i, new_shape);
+            std::vector<int> orig_indices(indices.size());
+            for (size_t j = 0; j < indices.size(); ++j) {
+                orig_indices[j] = indices[j] % tensor.shape[j];
+            }
+            int orig_linear_index = 0;
+            for (size_t k = 0; k < orig_indices.size(); ++k) {
+                orig_linear_index += orig_indices[k] * tensor.stride[k];
+            }
 
-            // 复制数据
-            tiled_tensor.data[i] = tensor.data[linear_index];
+            result.data[i] = tensor.data[orig_linear_index];
         }
 
-        return tiled_tensor;
+        return result;
     }
 
-    // 辅助函数：将线性索引转换为多维索引
-    std::vector<int> calculateIndex(int linear_index, const std::vector<int> &new_shape,
-                                    const std::vector<int> &original_shape, const std::vector<int> &shape) {
-        std::vector<int> index(original_shape.size(), 0);
-        for (int i = original_shape.size() - 1; i >= 0; --i) {
-            index[i] = (linear_index /
-                        std::accumulate(new_shape.begin() + i + 1, new_shape.end(), 1, std::multiplies<>())) %
-                       original_shape[i];
-        }
-        return index;
-    }
 
-    // 辅助函数：将多维索引转换为线性索引
-    int linearizeIndex(const std::vector<int> &index, const std::vector<int> &shape) {
-        int linear_index = 0;
-        for (size_t i = 0; i < index.size(); ++i) {
-            linear_index *= shape[i];
-            linear_index += index[i];
-        }
-        return linear_index;
-    }
 
     // ------- 2.2 Joining End -------
 
@@ -807,8 +799,8 @@ namespace ts {
         Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         T *a;
-        T* b;
-        T* c;
+        T *b;
+        T *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&b, data_size);
@@ -831,7 +823,7 @@ namespace ts {
         Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         T *a;
-        T* c;
+        T *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&c, data_size);
@@ -874,8 +866,8 @@ namespace ts {
         Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         T *a;
-        T* b;
-        T* c;
+        T *b;
+        T *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&b, data_size);
@@ -897,7 +889,7 @@ namespace ts {
         Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         T *a;
-        T* c;
+        T *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&c, data_size);
@@ -940,8 +932,8 @@ namespace ts {
         Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         T *a;
-        T* b;
-        T* c;
+        T *b;
+        T *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&b, data_size);
@@ -963,7 +955,7 @@ namespace ts {
         Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         T *a;
-        T* c;
+        T *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&c, data_size);
@@ -1006,8 +998,8 @@ namespace ts {
         Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         T *a;
-        T* b;
-        T* c;
+        T *b;
+        T *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&b, data_size);
@@ -1015,7 +1007,7 @@ namespace ts {
         cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
         cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
         cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-        divKernel<<<(size + 511) / 512, 512>>>(a, b,c, totalSize(shape));
+        divKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
         cudaDeviceSynchronize();
         cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
         cudaFree(a);
@@ -1029,7 +1021,7 @@ namespace ts {
         Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         T *a;
-        T* c;
+        T *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&c, data_size);
@@ -1070,7 +1062,7 @@ namespace ts {
         Tensor<T> result = deepcopy(*this);
         int size = shape.size();
         T *a;
-        T* c;
+        T *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&c, data_size);
@@ -1223,8 +1215,8 @@ namespace ts {
         Tensor<bool> result(shape, false);
         int size = shape.size();
         T *a;
-        T* b;
-        bool* c;
+        T *b;
+        bool *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&b, data_size);
@@ -1248,8 +1240,8 @@ namespace ts {
         Tensor<bool> result(shape, false);
         int size = shape.size();
         T *a;
-        T* b;
-        bool* c;
+        T *b;
+        bool *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&b, data_size);
@@ -1273,8 +1265,8 @@ namespace ts {
         Tensor<bool> result(shape, false);
         int size = shape.size();
         T *a;
-        T* b;
-        bool* c;
+        T *b;
+        bool *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&b, data_size);
@@ -1298,8 +1290,8 @@ namespace ts {
         Tensor<bool> result(shape, false);
         int size = shape.size();
         T *a;
-        T* b;
-        bool* c;
+        T *b;
+        bool *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&b, data_size);
@@ -1323,8 +1315,8 @@ namespace ts {
         Tensor<bool> result(shape, false);
         int size = shape.size();
         T *a;
-        T* b;
-        bool* c;
+        T *b;
+        bool *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&b, data_size);
@@ -1348,8 +1340,8 @@ namespace ts {
         Tensor<bool> result(shape, false);
         int size = shape.size();
         T *a;
-        T* b;
-        bool* c;
+        T *b;
+        bool *c;
         size_t data_size = totalSize(shape) * sizeof(T);
         cudaMallocManaged(&a, data_size);
         cudaMallocManaged(&b, data_size);
@@ -1532,11 +1524,11 @@ namespace ts {
     }
 
     template<typename T>
-    Tensor<T> checkOrder(std::vector<int>& idx, Tensor<T> tensor){
+    Tensor<T> checkOrder(std::vector<int> &idx, Tensor<T> tensor) {
         ts::Tensor<T> tensor_new = ts::deepcopy(tensor);
-        for(int i = 0; i < idx.size(); i++){
-            for(int j = i; j < idx.size(); j++){
-                if(idx[i]>idx[j]){
+        for (int i = 0; i < idx.size(); i++) {
+            for (int j = i; j < idx.size(); j++) {
+                if (idx[i] > idx[j]) {
                     tensor_new.transpose(idx[j], idx[i]);
                     int tmp = idx[j];
                     idx[j] = idx[i];
@@ -1598,15 +1590,16 @@ namespace ts {
         }
 
         //Sum over an axis
-        if(tensors_list.size()==1 && input_tensor_index.size()==1 && output_tensor_index.size() <= tensors[0].shape.size()){
-            std::vector<int> idx = get_indexes(input_tensor_index[0],output_tensor_index);
+        if (tensors_list.size() == 1 && input_tensor_index.size() == 1 &&
+            output_tensor_index.size() <= tensors[0].shape.size()) {
+            std::vector<int> idx = get_indexes(input_tensor_index[0], output_tensor_index);
             ts::Tensor result = checkOrder(idx, tensors[0]);
             int cnt = 0;
-            for(int i = 0; i < tensors[0].shape.size(); i++){
+            for (int i = 0; i < tensors[0].shape.size(); i++) {
                 auto it = std::find(idx.begin(), idx.end(), i);
                 if (it == idx.end()) {
                     // Value not found in the vector
-                    result = ts::sum(result,i-cnt);
+                    result = ts::sum(result, i - cnt);
                     cnt++;
                 }
             }

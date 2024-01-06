@@ -3,10 +3,12 @@ project(CS205-Project LANGUAGES CXX CUDA) # Add CUDA as a language if you're usi
 
 set(CMAKE_CXX_STANDARD 17)
 
+include_directories(/usr/local/cuda/include)
+
 add_executable(CS205-Project
-        main_aclr.cu
-        tensor_aclr_impl.cuh
         tensor_aclr.cuh
+        tensor_aclr_impl.cuh
+        main_aclr.cu
 )
 
 # OpenMP Configuration
