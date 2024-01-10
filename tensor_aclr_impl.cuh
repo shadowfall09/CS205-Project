@@ -56,11 +56,11 @@ namespace ts {
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape, T *data)
             : data(data),
-            shape(shape),
+              shape(shape),
               type(typeid(T).name()),
               stride() {
         init_stride(*this);
-              }
+    }
 
     /**
     * @brief Construct a new Tensor object, filled with the given data
@@ -73,7 +73,7 @@ namespace ts {
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape, const std::vector<int> &stride, T *data)
             : data(data),
-            shape(shape),
+              shape(shape),
               type(typeid(T).name()),
               stride(stride) {}
 
@@ -238,7 +238,7 @@ namespace ts {
     Tensor<T> deepcopy(const Tensor<T> other) {
         Tensor<T> result = Tensor(other.shape, other.stride, other.data);
         result.data = new T[totalSize(other.shape)];
-        std::memcpy(result.data, other.data, totalSize(other.shape)*sizeof(T));
+        std::memcpy(result.data, other.data, totalSize(other.shape) * sizeof(T));
         return result;
     }
 
@@ -290,11 +290,11 @@ namespace ts {
     template<typename T>
     Tensor<T> rand(std::vector<int> shape) {
         Tensor<T> tensor(shape, nullptr);
-        T * data = new T[totalSize(shape)];
+        T *data = new T[totalSize(shape)];
         for (int i = 0; i < totalSize(shape); ++i) {
             data[i] = random();
         }
-        tensor.data=data;
+        tensor.data = data;
         return tensor;
     }
 
@@ -805,23 +805,29 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<T> result = deepcopy(*this);
-        int size = shape.size();
-        T *a;
-        T* b;
-        T* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&b, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-        addKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(b);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *b;
+            T *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&b, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
+            addKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+        } else {
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] + other.data[i];
+            }
+        }
         return result;
     }
 
@@ -829,19 +835,25 @@ namespace ts {
     template<typename T>
     Tensor<T> Tensor<T>::add(T value) {
         Tensor<T> result = deepcopy(*this);
-        int size = shape.size();
-        T *a;
-        T* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-        addScalarKernel<<<(size + 511) / 512, 512>>>(a, value, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
+            addScalarKernel<<<(size + 511) / 512, 512>>>(a, value, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(c);
+        } else {
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] + value;
+            }
+        }
         return result;
     }
 
@@ -872,42 +884,54 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<T> result = deepcopy(*this);
-        int size = shape.size();
-        T *a;
-        T* b;
-        T* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&b, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-        subKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(b);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *b;
+            T *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&b, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
+            subKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+        } else {
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] - other.data[i];
+            }
+        }
         return result;
     }
 
     template<typename T>
     Tensor<T> Tensor<T>::sub(T value) {
         Tensor<T> result = deepcopy(*this);
-        int size = shape.size();
-        T *a;
-        T* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-        subScalarKernel<<<(size + 511) / 512, 512>>>(a, value, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
+            subScalarKernel<<<(size + 511) / 512, 512>>>(a, value, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(c);
+        } else {
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] - value;
+            }
+        }
         return result;
     }
 
@@ -938,42 +962,54 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<T> result = deepcopy(*this);
-        int size = shape.size();
-        T *a;
-        T* b;
-        T* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&b, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-        mulKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(b);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *b;
+            T *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&b, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
+            mulKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+        } else {
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] * other.data[i];
+            }
+        }
         return result;
     }
 
     template<typename T>
     Tensor<T> Tensor<T>::mul(T value) {
         Tensor<T> result = deepcopy(*this);
-        int size = shape.size();
-        T *a;
-        T* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-        mulScalarKernel<<<(size + 511) / 512, 512>>>(a, value, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
+            mulScalarKernel<<<(size + 511) / 512, 512>>>(a, value, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(c);
+        } else {
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] * value;
+            }
+        }
         return result;
     }
 
@@ -1004,42 +1040,54 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<T> result = deepcopy(*this);
-        int size = shape.size();
-        T *a;
-        T* b;
-        T* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&b, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-        divKernel<<<(size + 511) / 512, 512>>>(a, b,c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(b);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *b;
+            T *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&b, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
+            divKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+        } else {
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] / other.data[i];
+            }
+        }
         return result;
     }
 
     template<typename T>
     Tensor<T> Tensor<T>::div(T value) {
         Tensor<T> result = deepcopy(*this);
-        int size = shape.size();
-        T *a;
-        T* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-        divScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
+            divScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(c);
+        } else {
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] / value;
+            }
+        }
         return result;
     }
 
@@ -1068,19 +1116,25 @@ namespace ts {
     template<typename T>
     Tensor<T> Tensor<T>::log() {
         Tensor<T> result = deepcopy(*this);
-        int size = shape.size();
-        T *a;
-        T* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-        logKernel<<<(size + 511) / 512, 512>>>(a, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
+            logKernel<<<(size + 511) / 512, 512>>>(a, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(c);
+        } else {
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = log(data[i]);
+            }
+        }
         return result;
     }
 
@@ -1221,22 +1275,28 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        int size = shape.size();
-        T *a;
-        T* b;
-        bool* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&b, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-        eqKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(b);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *b;
+            bool *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&b, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
+            eqKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+        } else {
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] == other.data[i];
+            }
+        }
         return result;
     }
 
@@ -1246,22 +1306,28 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        int size = shape.size();
-        T *a;
-        T* b;
-        bool* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&b, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-        neKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
-        cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(b);
-        cudaFree(c);
-        cudaDeviceSynchronize();
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *b;
+            bool *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&b, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
+            neKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+            cudaDeviceSynchronize();
+        }else{
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] != other.data[i];
+            }
+        }
         return result;
     }
 
@@ -1271,22 +1337,28 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        int size = shape.size();
-        T *a;
-        T* b;
-        bool* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&b, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-        gtKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(b);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *b;
+            bool *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&b, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
+            gtKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+        }else{
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] > other.data[i];
+            }
+        }
         return result;
     }
 
@@ -1296,22 +1368,28 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        int size = shape.size();
-        T *a;
-        T* b;
-        bool* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&b, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-        geKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(b);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *b;
+            bool *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&b, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
+            geKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+        }else{
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] >= other.data[i];
+            }
+        }
         return result;
     }
 
@@ -1321,22 +1399,28 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        int size = shape.size();
-        T *a;
-        T* b;
-        bool* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&b, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-        ltKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(b);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *b;
+            bool *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&b, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
+            ltKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+        } else{
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] < other.data[i];
+            }
+        }
         return result;
     }
 
@@ -1346,22 +1430,28 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        int size = shape.size();
-        T *a;
-        T* b;
-        bool* c;
-        size_t data_size = totalSize(shape) * sizeof(T);
-        cudaMallocManaged(&a, data_size);
-        cudaMallocManaged(&b, data_size);
-        cudaMallocManaged(&c, data_size);
-        cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
-        cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-        leKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
-        cudaDeviceSynchronize();
-        cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
-        cudaFree(a);
-        cudaFree(b);
-        cudaFree(c);
+        if (acceleration) {
+            int size = shape.size();
+            T *a;
+            T *b;
+            bool *c;
+            size_t data_size = totalSize(shape) * sizeof(T);
+            cudaMallocManaged(&a, data_size);
+            cudaMallocManaged(&b, data_size);
+            cudaMallocManaged(&c, data_size);
+            cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
+            cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
+            leKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+        }else{
+            for (int i = 0; i < totalSize(shape); i++) {
+                result.data[i] = data[i] <= other.data[i];
+            }
+        }
         return result;
     }
 
