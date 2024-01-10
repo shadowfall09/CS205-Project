@@ -487,6 +487,14 @@ namespace ts {
         return result;
     }
 
+    std::vector<int> calculate_indices(int linear_index, const std::vector<int> &shape) {
+        std::vector<int> indices(shape.size());
+        for (int i = shape.size() - 1; i >= 0; --i) {
+            indices[i] = linear_index % shape[i];
+            linear_index /= shape[i];
+        }
+        return indices;
+    }
 
     template<typename T>
     Tensor<T> tile(Tensor<T> &tensor, std::vector<int> shape) {
@@ -548,14 +556,7 @@ namespace ts {
 //        return *this;
 //    }
 
-    std::vector<int> calculate_indices(int linear_index, const std::vector<int> &shape) {
-        std::vector<int> indices(shape.size());
-        for (int i = shape.size() - 1; i >= 0; --i) {
-            indices[i] = linear_index % shape[i];
-            linear_index /= shape[i];
-        }
-        return indices;
-    }
+
 
     template<typename T>
     Tensor<T> &Tensor<T>::operator=(T value) {
@@ -809,7 +810,7 @@ namespace ts {
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-            addKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            addKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -836,7 +837,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-            addScalarKernel<<<(size + 511) / 512, 512>>>(a, value, c, totalSize(shape));
+            addScalarKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, value, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -888,7 +889,7 @@ namespace ts {
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-            subKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            subKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -914,7 +915,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-            subScalarKernel<<<(size + 511) / 512, 512>>>(a, value, c, totalSize(shape));
+            subScalarKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, value, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -966,7 +967,7 @@ namespace ts {
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-            mulKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            mulKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -992,7 +993,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-            mulScalarKernel<<<(size + 511) / 512, 512>>>(a, value, c, totalSize(shape));
+            mulScalarKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, value, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -1044,7 +1045,7 @@ namespace ts {
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-            divKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            divKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -1070,7 +1071,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-            divScalarKernel<<<(size + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
+            divScalarKernel<<<(totalSize(shape) + 511) / 512, 512>>>(data, value, result.data, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -1117,7 +1118,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(c, data, data_size, cudaMemcpyHostToDevice);
-            logKernel<<<(size + 511) / 512, 512>>>(a, c, totalSize(shape));
+            logKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, data_size, cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -1278,7 +1279,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-            eqKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            eqKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -1309,7 +1310,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-            neKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            neKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
             cudaFree(a);
             cudaFree(b);
@@ -1340,7 +1341,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-            gtKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            gtKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -1371,7 +1372,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-            geKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            geKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -1402,7 +1403,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-            ltKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            ltKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
             cudaFree(a);
@@ -1433,7 +1434,7 @@ namespace ts {
             cudaMallocManaged(&c, data_size);
             cudaMemcpy(a, data, data_size, cudaMemcpyHostToDevice);
             cudaMemcpy(b, other.data, data_size, cudaMemcpyHostToDevice);
-            leKernel<<<(size + 511) / 512, 512>>>(a, b, c, totalSize(shape));
+            leKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
             cudaMemcpy(result.data, c, totalSize(shape) * sizeof(bool), cudaMemcpyDeviceToHost);
             cudaFree(a);
