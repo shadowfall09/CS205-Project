@@ -42,8 +42,10 @@ namespace ts {
             :shape(shape),
              stride(),
              type(typeid(T).name()) {
-        data = new T[totalSize(shape)];
-        std::fill(data, data + totalSize(shape), defaultValue);
+        T *data_ptr = new T[totalSize(shape)];
+        std::fill(data_ptr, data_ptr + totalSize(shape), defaultValue);
+        data = data_ptr;
+        parent_data = std::shared_ptr<T>(data_ptr, std::default_delete<T[]>());
         init_stride(*this);
     }
 
@@ -56,10 +58,11 @@ namespace ts {
      */
     template<typename T>
     Tensor<T>::Tensor(const std::vector<int> &shape, T *data)
-            : data(data),
-              shape(shape),
-              type(typeid(T).name()),
-              stride() {
+            :shape(shape),
+             type(typeid(T).name()),
+             stride() {
+        this->data = data;
+        this->parent_data = std::shared_ptr<T>(data, std::default_delete<T[]>());
         init_stride(*this);
     }
 
@@ -72,11 +75,14 @@ namespace ts {
     * @return A new Tensor object, filled with the given data
     */
     template<typename T>
-    Tensor<T>::Tensor(const std::vector<int> &shape, const std::vector<int> &stride, T *data)
-            : data(data),
-              shape(shape),
+    Tensor<T>::Tensor(const std::vector<int> &shape, const std::vector<int> &stride, T *data,
+                      std::shared_ptr<T> parent_data)
+            : shape(shape),
               type(typeid(T).name()),
-              stride(stride) {}
+              stride(stride) {
+        this->data = data;
+        this->parent_data = parent_data;
+    }
 
     /**
      * @brief Construct a new Tensor object from another Tensor object
@@ -86,10 +92,12 @@ namespace ts {
      */
     template<typename T>
     Tensor<T>::Tensor(const Tensor<T> &other)
-            : data(other.data),
-              shape(other.shape),
+            : shape(other.shape),
               type(other.type),
-              stride(other.stride) {}
+              stride(other.stride) {
+        this->data = other.data;
+        this->parent_data = other.parent_data;
+    }
 
     // ======= Class Constructor End =======
 
@@ -221,7 +229,7 @@ namespace ts {
      */
     template<typename T>
     Tensor<T> deepcopy(const Tensor<T> other) {
-        Tensor<T> result = newTensor(other,other.shape);
+        Tensor<T> result = newTensor(other, other.shape);
         return result;
     }
 
@@ -278,6 +286,7 @@ namespace ts {
             data[i] = (T) random();
         }
         tensor.data = data;
+        tensor.parent_data = std::shared_ptr<T>(data, std::default_delete<T[]>());
         return tensor;
     }
 
@@ -378,7 +387,7 @@ namespace ts {
         new_shape.erase(new_shape.begin() + dim);
         std::vector<int> new_stride = stride;
         new_stride.erase(new_stride.begin() + dim);
-        Tensor<T> tensor(new_shape, new_stride, data + index * stride[dim]);
+        Tensor<T> tensor(new_shape, new_stride, data + index * stride[dim], parent_data);
         return tensor;
     }
 
@@ -412,7 +421,8 @@ namespace ts {
         std::vector<int> new_shape = tensor0.shape;
         new_shape[0] = indices[1] - indices[0];
         Tensor<T> tensor(new_shape, tensor0.stride,
-                         tensor0.data + indices[0] * tensor0.stride[0]);
+                         tensor0.data + indices[0] * tensor0.stride[0],
+                         parent_data);
         return tensor;
     }
 
@@ -797,7 +807,7 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<T> result = deepcopy(*this);
-        std::vector<T> Va,Vb;
+        std::vector<T> Va, Vb;
         getData(Va, *this, 0, 0);
         getData(Vb, other, 0, 0);
         if (acceleration) {
@@ -808,9 +818,9 @@ namespace ts {
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&b, data_size);
             cudaMallocManaged(&c, data_size);
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
+                b[q] = Vb[q];
             }
             addKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -820,7 +830,7 @@ namespace ts {
             cudaFree(c);
         } else {
             for (int i = 0; i < totalSize(shape); i++) {
-                result.data[i] = Va[i]+Vb[i];
+                result.data[i] = Va[i] + Vb[i];
             }
         }
         return result;
@@ -838,8 +848,8 @@ namespace ts {
             size_t data_size = totalSize(shape) * sizeof(T);
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&c, data_size);
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
             }
             addScalarKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, value, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -881,7 +891,7 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<T> result = deepcopy(*this);
-        std::vector<T> Va,Vb;
+        std::vector<T> Va, Vb;
         getData(Va, *this, 0, 0);
         getData(Vb, other, 0, 0);
         if (acceleration) {
@@ -892,9 +902,9 @@ namespace ts {
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&b, data_size);
             cudaMallocManaged(&c, data_size);
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
+                b[q] = Vb[q];
             }
             subKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -904,7 +914,7 @@ namespace ts {
             cudaFree(c);
         } else {
             for (int i = 0; i < totalSize(shape); i++) {
-                result.data[i] = Va[i]-Vb[i];
+                result.data[i] = Va[i] - Vb[i];
             }
         }
         return result;
@@ -921,8 +931,8 @@ namespace ts {
             size_t data_size = totalSize(shape) * sizeof(T);
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&c, data_size);
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
             }
             subScalarKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, value, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -964,7 +974,7 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<T> result = deepcopy(*this);
-        std::vector<T> Va,Vb;
+        std::vector<T> Va, Vb;
         getData(Va, *this, 0, 0);
         getData(Vb, other, 0, 0);
         if (acceleration) {
@@ -975,9 +985,9 @@ namespace ts {
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&b, data_size);
             cudaMallocManaged(&c, data_size);
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
+                b[q] = Vb[q];
             }
             mulKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -987,7 +997,7 @@ namespace ts {
             cudaFree(c);
         } else {
             for (int i = 0; i < totalSize(shape); i++) {
-                result.data[i] = Va[i]*Vb[i];
+                result.data[i] = Va[i] * Vb[i];
             }
         }
         return result;
@@ -1004,8 +1014,8 @@ namespace ts {
             size_t data_size = totalSize(shape) * sizeof(T);
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&c, data_size);
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
             }
             mulScalarKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, value, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -1047,7 +1057,7 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<T> result = deepcopy(*this);
-        std::vector<T> Va,Vb;
+        std::vector<T> Va, Vb;
         getData(Va, *this, 0, 0);
         getData(Vb, other, 0, 0);
         if (acceleration) {
@@ -1058,9 +1068,9 @@ namespace ts {
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&b, data_size);
             cudaMallocManaged(&c, data_size);
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
+                b[q] = Vb[q];
             }
             divKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -1070,7 +1080,7 @@ namespace ts {
             cudaFree(c);
         } else {
             for (int i = 0; i < totalSize(shape); i++) {
-                result.data[i] = Va[i]/Vb[i];
+                result.data[i] = Va[i] / Vb[i];
             }
         }
         return result;
@@ -1087,8 +1097,8 @@ namespace ts {
             size_t data_size = totalSize(shape) * sizeof(T);
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&c, data_size);
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
             }
             divScalarKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, value, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -1136,8 +1146,8 @@ namespace ts {
             size_t data_size = totalSize(shape) * sizeof(T);
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&c, data_size);
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
             }
             logKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -1306,7 +1316,7 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        std::vector<T> Va,Vb;
+        std::vector<T> Va, Vb;
         getData(Va, *this, 0, 0);
         getData(Vb, other, 0, 0);
         if (acceleration) {
@@ -1317,9 +1327,9 @@ namespace ts {
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&b, data_size);
             cudaMallocManaged(&c, totalSize(shape) * sizeof(bool));
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
+                b[q] = Vb[q];
             }
             eqKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -1341,7 +1351,7 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        std::vector<T> Va,Vb;
+        std::vector<T> Va, Vb;
         getData(Va, *this, 0, 0);
         getData(Vb, other, 0, 0);
         if (acceleration) {
@@ -1352,9 +1362,9 @@ namespace ts {
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&b, data_size);
             cudaMallocManaged(&c, totalSize(shape) * sizeof(bool));
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
+                b[q] = Vb[q];
             }
             neKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -1376,7 +1386,7 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        std::vector<T> Va,Vb;
+        std::vector<T> Va, Vb;
         getData(Va, *this, 0, 0);
         getData(Vb, other, 0, 0);
         if (acceleration) {
@@ -1387,9 +1397,9 @@ namespace ts {
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&b, data_size);
             cudaMallocManaged(&c, totalSize(shape) * sizeof(bool));
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
+                b[q] = Vb[q];
             }
             gtKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -1411,7 +1421,7 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        std::vector<T> Va,Vb;
+        std::vector<T> Va, Vb;
         getData(Va, *this, 0, 0);
         getData(Vb, other, 0, 0);
         if (acceleration) {
@@ -1422,9 +1432,9 @@ namespace ts {
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&b, data_size);
             cudaMallocManaged(&c, totalSize(shape) * sizeof(bool));
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
+                b[q] = Vb[q];
             }
             geKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -1446,7 +1456,7 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        std::vector<T> Va,Vb;
+        std::vector<T> Va, Vb;
         getData(Va, *this, 0, 0);
         getData(Vb, other, 0, 0);
         if (acceleration) {
@@ -1457,9 +1467,9 @@ namespace ts {
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&b, data_size);
             cudaMallocManaged(&c, totalSize(shape) * sizeof(bool));
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
+                b[q] = Vb[q];
             }
             ltKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -1481,7 +1491,7 @@ namespace ts {
         assert(shape == other.shape);
         assert(type == other.type);
         Tensor<bool> result(shape, false);
-        std::vector<T> Va,Vb;
+        std::vector<T> Va, Vb;
         getData(Va, *this, 0, 0);
         getData(Vb, other, 0, 0);
         if (acceleration) {
@@ -1492,9 +1502,9 @@ namespace ts {
             cudaMallocManaged(&a, data_size);
             cudaMallocManaged(&b, data_size);
             cudaMallocManaged(&c, totalSize(shape) * sizeof(bool));
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
+                b[q] = Vb[q];
             }
             leKernel<<<(totalSize(shape) + 511) / 512, 512>>>(a, b, c, totalSize(shape));
             cudaDeviceSynchronize();
@@ -1623,7 +1633,7 @@ namespace ts {
     }
 
     template<typename T>
-    __global__ void outerProductKernel(T* a, T* b, T* c, size_t len_a, size_t len_b) {
+    __global__ void outerProductKernel(T *a, T *b, T *c, size_t len_a, size_t len_b) {
         int index = blockIdx.x * blockDim.x + threadIdx.x;
         if (index < len_a * len_b) {
             int i = index / len_b;
@@ -1634,11 +1644,11 @@ namespace ts {
 
     // outer product
     template<typename T>
-    Tensor<T> outerProduct(Tensor<T> tensor1,Tensor<T> tensor2) {
-        assert(tensor1.shape.size()==1);
-        assert(tensor2.shape.size()==1);
-        Tensor<T> result = tensor({tensor1.shape[0],tensor2.shape[0]},T(0));
-        std::vector<T> Va,Vb;
+    Tensor<T> outerProduct(Tensor<T> tensor1, Tensor<T> tensor2) {
+        assert(tensor1.shape.size() == 1);
+        assert(tensor2.shape.size() == 1);
+        Tensor<T> result = tensor({tensor1.shape[0], tensor2.shape[0]}, T(0));
+        std::vector<T> Va, Vb;
         getData(Va, tensor1, 0, 0);
         getData(Vb, tensor2, 0, 0);
         if (acceleration) {
@@ -1647,23 +1657,24 @@ namespace ts {
             T *c;
             cudaMallocManaged(&a, tensor1.shape[0] * sizeof(T));
             cudaMallocManaged(&b, tensor2.shape[0] * sizeof(T));
-            cudaMallocManaged(&c, tensor1.shape[0] * tensor2.shape[0] *sizeof(T));
-            for (size_t q = 0;q<Va.size();q++){
-                a[q]=Va[q];
+            cudaMallocManaged(&c, tensor1.shape[0] * tensor2.shape[0] * sizeof(T));
+            for (size_t q = 0; q < Va.size(); q++) {
+                a[q] = Va[q];
             }
-            for (size_t q = 0;q<Vb.size();q++){
-                b[q]=Vb[q];
+            for (size_t q = 0; q < Vb.size(); q++) {
+                b[q] = Vb[q];
             }
-            outerProductKernel<<<(tensor1.shape[0] * tensor2.shape[0] + 511) / 512, 512>>>(a, b, c, tensor1.shape[0], tensor2.shape[0]);
+            outerProductKernel<<<(tensor1.shape[0] * tensor2.shape[0] + 511) / 512, 512>>>(a, b, c, tensor1.shape[0],
+                                                                                           tensor2.shape[0]);
             cudaDeviceSynchronize();
-            cudaMemcpy(result.data, c, tensor1.shape[0] * tensor2.shape[0] *sizeof(T), cudaMemcpyDeviceToHost);
+            cudaMemcpy(result.data, c, tensor1.shape[0] * tensor2.shape[0] * sizeof(T), cudaMemcpyDeviceToHost);
             cudaFree(a);
             cudaFree(b);
             cudaFree(c);
         } else {
             for (size_t i = 0; i < tensor1.shape[0]; ++i) {
                 for (size_t j = 0; j < tensor2.shape[0]; ++j) {
-                    result.data[i*tensor2.shape[0]+j] = Va[i] * Vb[j];
+                    result.data[i * tensor2.shape[0] + j] = Va[i] * Vb[j];
                 }
             }
         }
@@ -1819,7 +1830,7 @@ namespace ts {
         // Vector inner products
         if (input_tensor_index.size() == 2 && input_tensor_index[0].size() == 1 && input_tensor_index[1].size() == 1 &&
             input_tensor_index[0] != input_tensor_index[1] && output_tensor_index.empty()) {
-            return outerProduct(tensors[0],tensors[1]);
+            return outerProduct(tensors[0], tensors[1]);
         }
 
         //Sum over an axis

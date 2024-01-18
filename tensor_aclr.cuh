@@ -14,7 +14,8 @@ namespace ts {
     template<typename T>
     class Tensor {
     public:
-        T* data;
+        T *data;
+        std::shared_ptr<T> parent_data;
         std::vector<int> shape;
         std::vector<int> stride;
         std::string type;
@@ -29,7 +30,7 @@ namespace ts {
 
         Tensor(const std::vector<int> &shape, T *data);
 
-        Tensor(const std::vector<int> &shape,const std::vector<int> &stride, T *data);
+        Tensor(const std::vector<int> &shape,const std::vector<int> &stride, T *data, std::shared_ptr<T> parent_data);
 
         Tensor(const Tensor<T> &other);
 
