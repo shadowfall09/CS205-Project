@@ -1622,6 +1622,55 @@ namespace ts {
         return tensor({shape_size}, diagonal);
     }
 
+    template<typename T>
+    __global__ void outerProductKernel(T* a, T* b, T* c, size_t len_a, size_t len_b) {
+        int index = blockIdx.x * blockDim.x + threadIdx.x;
+        if (index < len_a * len_b) {
+            int i = index / len_b;
+            int j = index % len_b;
+            c[index] = a[i] * b[j];
+        }
+    }
+
+    // outer product
+    template<typename T>
+    Tensor<T> outerProduct(Tensor<T> tensor1,Tensor<T> tensor2) {
+        assert(tensor1.shape.size()==1);
+        assert(tensor2.shape.size()==1);
+        Tensor<T> result = tensor({tensor1.shape[0],tensor2.shape[0]},T(0));
+        std::vector<T> Va,Vb;
+        getData(Va, tensor1, 0, 0);
+        getData(Vb, tensor2, 0, 0);
+        if (acceleration) {
+            T *a;
+            T *b;
+            T *c;
+            cudaMallocManaged(&a, tensor1.shape[0] * sizeof(T));
+            cudaMallocManaged(&b, tensor2.shape[0] * sizeof(T));
+            cudaMallocManaged(&c, tensor1.shape[0] * tensor2.shape[0] *sizeof(T));
+            for (size_t q = 0;q<Va.size();q++){
+                a[q]=Va[q];
+            }
+            for (size_t q = 0;q<Vb.size();q++){
+                b[q]=Vb[q];
+            }
+            outerProductKernel<<<(tensor1.shape[0] * tensor2.shape[0] + 511) / 512, 512>>>(a, b, c, tensor1.shape[0], tensor2.shape[0]);
+            cudaDeviceSynchronize();
+            cudaMemcpy(result.data, c, tensor1.shape[0] * tensor2.shape[0] *sizeof(T), cudaMemcpyDeviceToHost);
+            cudaFree(a);
+            cudaFree(b);
+            cudaFree(c);
+        } else {
+            for (size_t i = 0; i < tensor1.shape[0]; ++i) {
+                for (size_t j = 0; j < tensor2.shape[0]; ++j) {
+                    result.data[i*tensor2.shape[0]+j] = Va[i] * Vb[j];
+                }
+            }
+        }
+
+        return result;
+    }
+
     std::pair<std::vector<std::string>, std::string> splitCommand(const std::string &command) {
         std::pair<std::vector<std::string>, std::string> result;
         std::stringstream ss(command);
@@ -1740,6 +1789,12 @@ namespace ts {
         if (input_tensor_index.size() == 2 && input_tensor_index[0].size() == 1 &&
             input_tensor_index[0] == input_tensor_index[1] && output_tensor_index.empty()) {
             return tensors[0].mul(tensors[1]).sum(0);
+        }
+
+        // Vector inner products
+        if (input_tensor_index.size() == 2 && input_tensor_index[0].size() == 1 && input_tensor_index[1].size() == 1 &&
+            input_tensor_index[0] != input_tensor_index[1] && output_tensor_index.empty()) {
+            return outerProduct(tensors[0],tensors[1]);
         }
 
         //Sum over an axis
