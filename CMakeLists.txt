@@ -8,8 +8,7 @@ include_directories(/usr/local/cuda/include)
 add_executable(CS205-Project
         tensor_aclr.cuh
         tensor_aclr_impl.cuh
-        main_aclr.cu
-        test_openmp.cpp
+        test.cu
 )
 
 # OpenMP Configuration
