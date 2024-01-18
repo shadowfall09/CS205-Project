@@ -14,6 +14,7 @@
 #include <string>
 #include <cctype>
 #include <iostream>
+#include "omp.h"
 
 namespace ts {
     int totalSize(const std::vector<int> &shape);
@@ -1165,7 +1166,6 @@ namespace ts {
     // ======= 3.1 Pointwise operations End =======
 
 
-
     // ======= 3.2 Reduction operations =======
 
     // ======= 3.2.1 Sum ======
@@ -1173,10 +1173,13 @@ namespace ts {
     Tensor<T> sum(Tensor<T> &tensor, int dim) {
         assert(dim <= tensor.shape.size());
         Tensor<T> result(tensor(0, dim).shape, getT(tensor));
+        omp_set_num_threads(4);
         for (int i = 0; i < tensor.shape[dim]; i++) {
             Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
             tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+#pragma omp parallel for
             for (int j = 0; j < totalSize(result.shape); j++) {
+#pragma omp critical
                 result.data[j] += tmp.data[j];
             }
         }
@@ -1195,10 +1198,13 @@ namespace ts {
     Tensor<T> mean(Tensor<T> &tensor, int dim) {
         assert(dim <= tensor.shape.size());
         Tensor<T> result(tensor(0, dim).shape, getT(tensor));
+        omp_set_num_threads(4);
         for (int i = 0; i < tensor.shape[dim]; i++) {
             Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
             tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+#pragma omp parallel for
             for (int j = 0; j < totalSize(result.shape); j++) {
+#pragma omp critical
                 result.data[j] += tmp.data[j];
             }
         }
@@ -1222,7 +1228,10 @@ namespace ts {
         assert(tensor1.shape == tensor2.shape);
         ts::Tensor result = ts::tensor(tensor1.shape, new T[totalSize(tensor1.shape)]);
         int size = totalSize(tensor1.shape);
+        omp_set_num_threads(4);
+#pragma omp parallel for
         for (int i = 0; i < size; i++) {
+#pragma omp critical
             result.data[i] = std::max(tensor1.data[i], tensor2.data[i]);
         }
         return result;
@@ -1232,7 +1241,10 @@ namespace ts {
     Tensor<T> max(Tensor<T> &tensor, int dim) {
         assert(dim <= tensor.shape.size());
         Tensor<T> result(tensor(0, dim).shape, std::numeric_limits<T>::min());
+        omp_set_num_threads(4);
+#pragma omp parallel for
         for (int i = 0; i < tensor.shape[dim]; i++) {
+#pragma omp critical
             Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
             tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
             result = max(result, tmp);
@@ -1253,7 +1265,10 @@ namespace ts {
         assert(tensor1.shape == tensor2.shape);
         ts::Tensor result = ts::tensor(tensor1.shape, new T[totalSize(tensor1.shape)]);
         int size = totalSize(tensor1.shape);
+        omp_set_num_threads(4);
+#pragma omp parallel for
         for (int i = 0; i < size; i++) {
+#pragma omp critical
             result.data[i] = std::min(tensor1.data[i], tensor2.data[i]);
         }
         return result;
@@ -1263,7 +1278,10 @@ namespace ts {
     Tensor<T> min(Tensor<T> &tensor, int dim) {
         assert(dim <= tensor.shape.size());
         Tensor<T> result(tensor(0, dim).shape, std::numeric_limits<T>::max());
+        omp_set_num_threads(4);
+#pragma omp parallel for
         for (int i = 0; i < tensor.shape[dim]; i++) {
+#pragma omp critical
             Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
             tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
             result = min(result, tmp);
