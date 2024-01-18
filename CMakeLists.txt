@@ -9,6 +9,7 @@ add_executable(CS205-Project
         tensor_aclr.cuh
         tensor_aclr_impl.cuh
         main_aclr.cu
+        test_openmp.cpp
 )
 
 # OpenMP Configuration
