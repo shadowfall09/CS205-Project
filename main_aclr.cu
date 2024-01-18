@@ -16,16 +16,16 @@ int main() {
                                       2,3,
                                       4,5,6,
                                       7,8,9,10 });
-//    ts::Tensor t = ts::tensor({1000000000},11);
-//    ts::Tensor t1 = ts::tensor({1000000000},10);
-//    auto start = std::chrono::high_resolution_clock::now();
-//    t+t1;
-////    std::cout << ()<< std::endl;
-//    auto end = std::chrono::high_resolution_clock::now();
-//    std::chrono::duration<double> diff = end-start;
-//    std::cout << "Time to run the code: " << diff.count() << " s\n";
-    ts::Tensor test = ts::rand<int>({3,2});
-    cout << test << endl;
-    cout << test.sum(1) << endl;
+    ts::Tensor test1 = ts::rand<int>({3,2});
+    ts::Tensor test2 = ts::rand<int>({2,3});
+//    cout << t(0)(0) << endl;
+//    cout << test << endl;
+//    cout << test.sum(1) << endl;
+//    ts::einsum("ij->j",{test});
+    cout << test1 << endl;
+    cout << test2 << endl;
+//    cout << ts::einsum("ik,kj->ij",{test1, test2}) << endl;
+//    cout << ts::einsum("ij,ij->",{test1,test2}) << endl;
+
     return 0;
 }

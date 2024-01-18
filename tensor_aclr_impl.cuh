@@ -729,7 +729,7 @@ namespace ts {
     __global__ void logKernel(T *data, T *result, int size) {
         int index = threadIdx.x + blockIdx.x * blockDim.x;
         if (index < size) {
-            result[index] = log(data[index]);
+            result[index] = log((double)data[index]);
         }
     }
 
@@ -1146,7 +1146,7 @@ namespace ts {
             cudaFree(c);
         } else {
             for (int i = 0; i < totalSize(shape); i++) {
-                result.data[i] = log(Va[i]);
+                result.data[i] = std::log((double)Va[i]);
             }
         }
         return result;
@@ -1741,6 +1741,31 @@ namespace ts {
         return tensor_new;
     }
 
+    template<typename T>
+    Tensor<T> matrix_mul(Tensor<T> t1, Tensor<T> t2) {
+        assert(t1.shape.size() == 2 && t2.shape.size() == 2);
+        assert(t1.shape[1] == t2.shape[0]);
+        int resultRows = t1.shape[0];
+        int resultCols = t2.shape[1];
+        std::vector shape = {resultRows, resultCols};
+        Tensor<T> result = ts::tensor(shape, new T[totalSize(shape)]);
+
+        int num_threads = 4;
+        omp_set_num_threads(num_threads);
+
+#pragma omp parallel for collapse(2)
+        for (int i = 0; i < resultRows; i++) {
+            for (int j = 0; j < resultCols; j++) {
+                result.data[i * resultCols + j] = 0;
+                for (int k = 0; k < t1.shape[1]; k++) {
+                    result.data[i * resultCols + j] += t1.data[i * t1.shape[1] + k] * t2.data[k * t2.shape[1] + j];
+                }
+            }
+        }
+
+        return result;
+    }
+
 
     // ====== EINSUM helper functions END ======
 
@@ -1810,6 +1835,25 @@ namespace ts {
                     result = ts::sum(result, i - cnt);
                     cnt++;
                 }
+            }
+            return result;
+        }
+
+        //Matrix Multiplication
+        //only consider dim = 2
+        if(input_tensor_index.size() == 2 && input_tensor_index[0][1] == input_tensor_index[1][0] &&
+            input_tensor_index[0][0] == output_tensor_index[0] && input_tensor_index[1][1] == output_tensor_index[1]) {
+            return matrix_mul(tensors[0],tensors[1]);
+        }
+
+        //Matrix elements multiply and sum
+        if(input_tensor_index.size() == 2 && input_tensor_index[0] == input_tensor_index[1]){
+            Tensor<T> tmp = tensors[0].mul(tensors[1]).sum(1);
+            std::vector shape = {1};
+            Tensor<T> result = ts::tensor(shape, new T[totalSize(shape)]);
+            result.data[0] = 0;
+            for(int i = 0; i < tmp.shape[0]; i++){
+                result.data[0] += tmp.data[i];
             }
             return result;
         }

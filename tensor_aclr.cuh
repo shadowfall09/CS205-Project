@@ -203,22 +203,22 @@ namespace ts {
     Tensor<T> div(Tensor<T> &tensor, T value);
 
     template<typename T>
-    Tensor<T> eq(Tensor<T> &t1, Tensor<T> &t2);
+    Tensor<bool> eq(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> ne(Tensor<T> &t1, Tensor<T> &t2);
+    Tensor<bool> ne(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> le(Tensor<T> &t1, Tensor<T> &t2);
+    Tensor<bool> le(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> lt(Tensor<T> &t1, Tensor<T> &t2);
+    Tensor<bool> lt(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> ge(Tensor<T> &t1, Tensor<T> &t2);
+    Tensor<bool> ge(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
-    Tensor<T> gt(Tensor<T> &t1, Tensor<T> &t2);
+    Tensor<bool> gt(Tensor<T> &t1, Tensor<T> &t2);
 
     template<typename T>
     Tensor<T> einsum(std::string command,std::initializer_list<Tensor<T>> tensors);
