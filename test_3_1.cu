@@ -7,15 +7,15 @@ int main() {
     // 3.1 Pointwise operations including add , sub , mul , div , log
     cout << "3.1: Pointwise operations" << endl;
     vector<int> shape1{3,2};
-    double data1[3][2]{0.1, 1.2,
-                       2.2, 3.1,
-                       4.9, 5.2};
-    ts::Tensor t1 = ts::tensor(shape1, &data1[0][0]);
+    double *data1 = new double[6]{0.1, 1.2,
+                                       2.2, 3.1,
+                                       4.9, 5.2};
+    ts::Tensor t1 = ts::tensor(shape1, data1);
     vector<int> shape2{3,2};
-    double data2[3][2]{0.2, 1.3,
-                       2.3, 3.2,
-                       4.8, 5.1};
-    ts::Tensor t2 = ts::tensor(shape2, &data2[0][0]);
+    double *data2 = new double[6]{0.2, 1.3,
+                                   2.3, 3.2,
+                                   4.8, 5.1};
+    ts::Tensor t2 = ts::tensor(shape2, data2);
     cout << "3.1.1: add" << endl;
     cout << "tensor1: " << endl << t1 << endl;
     cout << "tensor2: " << endl << t2 << endl;
@@ -54,10 +54,10 @@ int main() {
 
     cout << "3.1.5: log" << endl;
     vector<int> shape3{3,2};
-    int data3[3][2]{1, 2,
+    int *data3 = new int[6]{1, 2,
                        3, 4,
                        5, 6};
-    ts::Tensor t3 = ts::tensor(shape3, &data3[0][0]);
+    ts::Tensor t3 = ts::tensor(shape3, data3);
     cout << "t3.log() " << endl << t3.log() << endl;
     cout << endl;
 
@@ -66,10 +66,10 @@ int main() {
     cout << "3.2: Reduction operations" << endl;
 
     vector<int> shape4{3,2};
-    double data4[3][2]{0.1, 1.2,
+    double *data4 = new double[6]{0.1, 1.2,
                        2.2, 3.1,
                        4.9, 5.2};
-    ts::Tensor t4 = ts::tensor(shape4, &data4[0][0]);
+    ts::Tensor t4 = ts::tensor(shape4, data4);
     cout << "3.2.1: sum" << endl;
     cout << "tensor4" << endl << t4 << endl;
     cout << "sum(t4, 0) " << endl << ts::sum(t4,0) << endl;
@@ -102,15 +102,15 @@ int main() {
     //3.3 Comparison operations including eq , ne , gt , ge , lt , le
     cout << "3.3: Comparison operations" << endl;
     vector<int> shape5{3,2};
-    double data5[3][2]{0.1, 1.2,
+    double *data5 = new double[6]{0.1, 1.2,
                        2.2, 3.1,
                        4.9, 5.2};
-    ts::Tensor t5 = ts::tensor(shape5, &data5[0][0]);
+    ts::Tensor t5 = ts::tensor(shape5, data5);
     vector<int> shape6{3,2};
-    double data6[3][2]{0.2, 1.3,
+    double *data6 = new double[6]{0.2, 1.3,
                        2.2, 3.2,
                        4.8, 5.2};
-    ts::Tensor t6 = ts::Tensor(shape6, &data6[0][0]);
+    ts::Tensor t6 = ts::Tensor(shape6, data6);
     ts::Tensor<bool> t7 = t5.eq(t6);
     cout << "3.3.1: eq" << endl;
     cout << "tensor5: " << endl << t5 << endl;
@@ -151,10 +151,97 @@ int main() {
     cout << endl;
 
     //3.4 einsum
-    //3.4.1 dot product
     cout << "3.4: einsum" << endl;
-    cout <<"3.4.1 dot product " << endl;
-    cout << "ts::einsum(\"i,i->\", t1, t2);" << endl;
+
+    vector<int> shape8{3};
+    int *data8 = new int[3]{1, 2, 3};
+    ts::Tensor t8 = ts::Tensor(shape8, data8);
+    vector<int> shape9{3};
+    int *data9 = new int[3]{4, 5, 6};
+    ts::Tensor t9 = ts::Tensor(shape9, data9);
+    cout << "tensor8: " << endl << t8 << endl;
+    cout << "tensor9: " << endl << t9 << endl;
+    cout << endl;
+
+    //3.4.1 dot product (inner product)
+    cout <<"3.4.1: dot product " << endl;
+    cout << "ts::einsum(\"i,i->\", t8, t9);" << endl;
+    cout << ts::einsum("i,i->",{t8, t9}) << endl;
+    cout << endl;
+
+    //3.4.2 element-wise product
+    cout << "3.4.2: computes the element-wise product " << endl;
+    cout << "ts::einsum(\"i,i->i\", t8, t9);" << endl;
+    cout << ts::einsum("i,i->i",{t8, t9}) << endl;
+    cout << endl;
+
+    //3.4.3 diagonal
+    cout << "3.4.3:  diagonal" << endl;
+    vector<int> shape10{3,3};
+    int *data10 = new int[9]{1, 2, 3,
+                             4, 5, 6,
+                             7, 8, 9};
+    ts::Tensor t10 = ts::Tensor(shape10, data10);
+    cout << "tensor10: " << endl << t10 << endl;
+    cout <<"ts::einsum(\"ii->i\", t10);";
+    cout << ts::einsum("ii->i", {t10}) << endl;
+    cout << endl;
+
+    //3.4.4 permute
+    cout << "3.4.4: permute" << endl;
+    cout << ts::einsum("ij->ji",{t10}) << endl;
+    cout << endl;
+
+
+    //3.4.5 outer product
+    cout << "3.4.5: outer product" << endl;
+    cout << "ts::einsum(\"i,j->ij\", t8, t9);" << endl;
+    cout << ts::einsum("i,j->ij",{t8, t9}) << endl;
+    cout << endl;
+
+    //3.4.6 batch matrix mul
+    cout << "3.4.6: Batch Matrix Multiplication" << endl;
+    ts::Tensor t11 = ts::rand<int>({2, 3, 2});
+    ts::Tensor t12 = ts::rand<int>({2, 2, 3});
+    cout << "tensor11: " << endl << t11 << endl;
+    cout << "tensor12: " << endl << t12 << endl;
+    cout << "ts::einsum(\"bij,bjk->bik\", t11, t12);" << endl;
+    cout << ts::einsum("bij,bjk->bik", {t11, t12}) << endl;
+    cout << endl;
+
+
+    //3.4.7 trace
+    cout << "3.4.7: Trace" << endl;
+    vector<int> shape13{3,3};
+    int *data13 = new int[9]{1, 2, 3,
+                             4, 5, 6,
+                             7, 8, 9};
+    ts::Tensor t13 = ts::Tensor(shape13, data13);
+    cout << "tensor13: " << endl << t13 << endl;
+    cout << "ts::einsum(\"ii\",t13);" << endl;
+    cout << ts::einsum("ii",{t13}) << endl;
+    cout << endl;
+
+    //3.4.8 sum over an axis
+    cout << "3.4.8: sum over an axis" << endl;
+    ts::Tensor t14 = ts::rand<int>({2,3,4});
+    cout << "tensor14: " << endl << t14 << endl;
+    cout << "ts::einsum(\"ijk->jk\",t14)" << endl;
+    cout << ts::einsum("ijk->jk",{t14}) << endl;
+    cout << endl;
+
+
+    //3.4.9 Matrix elements multiply and sum
+    cout << "3.4.9 matrix elements mul and sum" << endl;
+    ts::Tensor t15 = ts::rand<int>({3,3});
+    ts::Tensor t16 = ts::rand<int>({3,3});
+    cout << "tensor15: " << endl << t15 << endl;
+    cout << "tensor16: " << endl << t16 << endl;
+    cout << "ts::einsum(\"ij,ij->\",t15,t16)" << endl;
+    cout << ts::einsum("ij,ij->",{t15,t16}) << endl;
+    cout << endl;
+
+
 
     return 0;
 }
