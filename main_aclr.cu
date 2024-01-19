@@ -80,12 +80,18 @@ int main() {
                                    8, 9, 10, 11};
     vector<int> shape1{3, 4};
     ts::Tensor t1 = ts::tensor(shape1, data1);
+    {
+        std::ofstream file("tensor.cereal", std::ios::binary);
+        cereal::BinaryOutputArchive oarchive(file);
+        oarchive(t1);
+    }
     ts::Tensor<double> t2;
     {
         std::ifstream file("tensor.cereal", std::ios::binary);
         cereal::BinaryInputArchive iarchive(file);
         iarchive(t2);
     }
+
     cout<<t2<<endl;
     return 0;
 }

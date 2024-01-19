@@ -1,4 +1,6 @@
 #include <iostream>
+#include <cereal/archives/binary.hpp>
+#include <fstream>
 #include "tensor_aclr_impl.cuh"
 
 using namespace std;
@@ -84,10 +86,10 @@ int main() {
         double *data8_1 = new double[6]{0.1, 1.1, 2.1,
                                         3.1, 4.1, 5.1},
                 *data8_2 = new double[6]{0.2, 1.2, 2.2,
-                                        3.2, 4.2, 5.2};
+                                         3.2, 4.2, 5.2};
         ts::Tensor t8_1 = ts::tensor(shape8_1, data8_1),
                 t8_2 = ts::tensor(shape8_2, data8_2);
-        vector<ts::Tensor<double>> t8s{t8_1, t8_2};
+        vector <ts::Tensor<double>> t8s{t8_1, t8_2};
         ts::Tensor t8_cat1 = ts::cat(t8s, 0),
                 t8_cat2 = ts::cat(t8s, 1),
                 t8_tile = ts::tile(t8_1, {2, 3});
@@ -144,6 +146,33 @@ int main() {
         cout << "view(t, {5, 3}): " << endl << t11_view1 << endl;
         ts::Tensor t11_view2 = t11.view({15, 1});
         cout << "t.view({15, 1}): " << endl << t11_view2 << endl << endl;
+    }
+
+    {
+        // bonus 1: serialization
+        cout << "bonus 1: serialize to tensor.cereal" << endl;
+        double *data1 = new double[12]{0, 1, 2, 3,
+                                       4, 5, 6, 7,
+                                       8, 9, 10, 11};
+        vector<int> shape1{3, 4};
+        ts::Tensor tb1_1 = ts::tensor(shape1, data1);
+        cout << "tensor: " << tb1_1 << endl;
+        {
+            cout << "serialization start" << endl;
+            std::ofstream file("tensor.cereal", std::ios::binary);
+            cereal::BinaryOutputArchive oarchive(file);
+            oarchive(tb1_1);
+            cout << "serialization end" << endl;
+        }
+        ts::Tensor<double> tb_2;
+        {
+            cout << "deserialization start" << endl;
+            std::ifstream file("tensor.cereal", std::ios::binary);
+            cereal::BinaryInputArchive iarchive(file);
+            iarchive(tb_2);
+            cout << "deserialization end" << endl;
+        }
+        cout << "deserialized tensor: " << endl << tb_2 << endl << endl;
     }
     return 0;
 }
