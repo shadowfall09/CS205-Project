@@ -1787,6 +1787,30 @@ namespace ts {
         return result;
     }
 
+    template<typename T>
+    Tensor<T> batch_matrix_mul(Tensor<T> t1, Tensor<T> t2) {
+        assert(t1.shape.size() == 3 && t2.shape.size() == 3);
+        assert(t1.shape[2] == t2.shape[1]);
+        std::vector<int> shape{t1.shape[0],t1.shape[1],t2.shape[2]};
+        Tensor<T> result = ts::tensor(shape, new T[totalSize(shape)]);
+        int idx = 0;
+        omp_set_num_threads(4);
+#pragma omp parallel for
+        for(int i = 0; i < t1.shape[0]; i++){
+            Tensor<T> tmp1(t1(i, 0).shape, getT(t1));
+            tmp1 = newTensor(t1(i, 0), t1(i, 0).shape);
+            Tensor<T> tmp2(t2(i, 0).shape, getT(t2));
+            tmp2 = newTensor(t2(i, 0), t2(i, 0).shape);
+            Tensor<T> mul = matrix_mul(tmp1, tmp2);
+#pragma omp critical
+            for(int j = 0; j < totalSize(mul.shape); j++){
+                result.data[idx] = mul.data[j];
+                idx++;
+            }
+        }
+        return result;
+    }
+
 
     // ====== EINSUM helper functions END ======
 
@@ -1810,6 +1834,11 @@ namespace ts {
         }
         if (!isAllAlpha(output_tensor_index)) {
             throw std::invalid_argument("input tensors does not match the instruction");
+        }
+
+        // element-wise product
+        if(input_tensor_index.size() == 2 && output_tensor_index.size() == 1 && input_tensor_index[0] == input_tensor_index[1] && input_tensor_index[0] == output_tensor_index){
+            return mul(tensors[0],tensors[1]);
         }
 
         // trace & diagonal
@@ -1837,9 +1866,10 @@ namespace ts {
             return tensors[0].mul(tensors[1]).sum(0);
         }
 
-        // Vector outer products
+        // Vector inner products
         if (input_tensor_index.size() == 2 && input_tensor_index[0].size() == 1 && input_tensor_index[1].size() == 1 &&
-            input_tensor_index[0] != input_tensor_index[1] && output_tensor_index.empty()) {
+            input_tensor_index[0] != input_tensor_index[1] && (output_tensor_index.empty() ||
+                                                               (input_tensor_index[0][0] == output_tensor_index[0] && input_tensor_index[1][0] == output_tensor_index[1]))) {
             return outerProduct(tensors[0], tensors[1]);
         }
 
@@ -1860,10 +1890,9 @@ namespace ts {
             return result;
         }
 
-        //Matrix Multiplication
-        //only consider dim = 2
+        //Matrix Multiplication (dim = 2)
         if(input_tensor_index.size() == 2 && input_tensor_index[0][1] == input_tensor_index[1][0] &&
-            input_tensor_index[0][0] == output_tensor_index[0] && input_tensor_index[1][1] == output_tensor_index[1]) {
+           input_tensor_index[0][0] == output_tensor_index[0] && input_tensor_index[1][1] == output_tensor_index[1]) {
             return matrix_mul(tensors[0],tensors[1]);
         }
 
@@ -1878,6 +1907,16 @@ namespace ts {
             }
             return result;
         }
+
+        //Batch matrix multiplication (dim = 3)
+        if(input_tensor_index.size() == 2 && input_tensor_index[0].size() == 3 &&
+           input_tensor_index[0][0] == input_tensor_index[1][0] && input_tensor_index[0][0] == output_tensor_index[0] &&
+           input_tensor_index[0][1] == output_tensor_index[1] && input_tensor_index[0][2] == input_tensor_index[1][1] &&
+           input_tensor_index[1][2] == output_tensor_index[2]){
+            return batch_matrix_mul(tensors[0],tensors[1]);
+        }
+
+
         throw std::invalid_argument("input tensors does not match the instruction");
     }
     // ====== 3.4 EINSUM END ======
