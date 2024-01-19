@@ -14,6 +14,7 @@
 #include <string>
 #include <cctype>
 #include <iostream>
+#include <unordered_set>
 #include "omp.h"
 
 namespace ts {
@@ -1795,6 +1796,50 @@ namespace ts {
     }
 
     template<typename T>
+    __global__ void block_sum_kernel(T* d_out, T* d_in, int size) {
+        extern __shared__ T shared_data[];
+        int idx = threadIdx.x + blockIdx.x * blockDim.x;
+        if (idx < size) {
+            shared_data[threadIdx.x] = d_in[idx];
+        } else {
+            shared_data[threadIdx.x] = 0;
+        }
+        __syncthreads();
+        for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+            if (threadIdx.x < s) {
+                shared_data[threadIdx.x] += shared_data[threadIdx.x + s];
+            }
+            __syncthreads();
+        }
+        if (threadIdx.x == 0) d_out[blockIdx.x] = shared_data[0];
+    }
+
+    template<typename T>
+    Tensor<T> singleTensorSum(std::vector<T> &data) {
+        T sum=0;
+        if (acceleration){
+            T *d_in;
+            T *d_out;
+            cudaMallocManaged((void**)&d_in, data.size() * sizeof(T));
+            cudaMallocManaged((void**)&d_out, sizeof(T));
+            cudaMemcpy(d_in, data.data(), data.size() * sizeof(T), cudaMemcpyHostToDevice);
+            int blockSize = 1024;
+            int numBlocks = (data.size() + blockSize - 1) / blockSize;
+            block_sum_kernel<<<numBlocks, blockSize, blockSize * sizeof(T)>>>(d_out, d_in, data.size());
+            cudaDeviceSynchronize();
+            cudaMemcpy(&sum, d_out, sizeof(T), cudaMemcpyDeviceToHost);
+            cudaFree(d_in);
+            cudaFree(d_out);
+        }else{
+            for (T data0:data){
+                sum+=data0;
+            }
+        }
+        return tensor({1}, sum);
+    }
+
+
+    template<typename T>
     Tensor<T> checkOrder(std::vector<int> &idx, Tensor<T> tensor) {
         ts::Tensor<T> tensor_new = ts::deepcopy(tensor);
         for (int i = 0; i < idx.size(); i++) {
@@ -1884,6 +1929,15 @@ namespace ts {
         return result;
     }
 
+    bool has_no_duplicates(const std::vector<std::string>& vec) {
+        std::unordered_set<std::string> seen;
+        for (const auto& str : vec) {
+            if (!seen.insert(str).second) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     // ====== EINSUM helper functions END ======
 
@@ -1923,6 +1977,13 @@ namespace ts {
             } else throw std::invalid_argument("input tensors does not match the instruction");
         }
 
+        // sum of a tensor
+        if (has_no_duplicates(input_tensor_index)&& output_tensor_index.empty()){
+            std::vector<T> V;
+            getData(V,tensors[0],0,0);
+            return singleTensorSum(V);
+        }
+
         // permute
         if (input_tensor_index.size() == 1 && output_tensor_index.empty()) {
             std::vector<int> idx = sort_indexes(input_tensor_index[0]);
@@ -1939,7 +2000,7 @@ namespace ts {
             return tensors[0].mul(tensors[1]).sum(0);
         }
 
-        // Vector inner products
+        // Vector outer products
         if (input_tensor_index.size() == 2 && input_tensor_index[0].size() == 1 && input_tensor_index[1].size() == 1 &&
             input_tensor_index[0] != input_tensor_index[1] && (output_tensor_index.empty() ||
                                                                (input_tensor_index[0][0] == output_tensor_index[0] && input_tensor_index[1][0] == output_tensor_index[1]))) {
