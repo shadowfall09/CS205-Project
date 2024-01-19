@@ -115,7 +115,7 @@ namespace ts {
     // ======= 0. Helper Functions =======
 
     // ------- Random Part -------
-    const double MIN_RANDOM = 0, MAX_RANDOM = 10;
+    const double MIN_RANDOM = 1, MAX_RANDOM = 5000;
     static std::random_device rd;
     static std::mt19937 gen(rd());
     static std::uniform_real_distribution<> dis(MIN_RANDOM, MAX_RANDOM);
@@ -749,7 +749,7 @@ namespace ts {
     __global__ void logKernel(T *data, T *result, int size) {
         int index = threadIdx.x + blockIdx.x * blockDim.x;
         if (index < size) {
-            result[index] = log((double)data[index]);
+            result[index] = std::log((double)data[index]);
         }
     }
 
@@ -1193,14 +1193,24 @@ namespace ts {
     Tensor<T> sum(Tensor<T> &tensor, int dim) {
         assert(dim <= tensor.shape.size());
         Tensor<T> result(tensor(0, dim).shape, getT(tensor));
-        omp_set_num_threads(4);
-        for (int i = 0; i < tensor.shape[dim]; i++) {
-            Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
-            tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+        if(acceleration) {
+            omp_set_num_threads(4);
+            for (int i = 0; i < tensor.shape[dim]; i++) {
+                Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
+                tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
 #pragma omp parallel for
-            for (int j = 0; j < totalSize(result.shape); j++) {
+                for (int j = 0; j < totalSize(result.shape); j++) {
 #pragma omp critical
-                result.data[j] += tmp.data[j];
+                    result.data[j] += tmp.data[j];
+                }
+            }
+        }else{
+            for (int i = 0; i < tensor.shape[dim]; i++) {
+                Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
+                tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+                for (int j = 0; j < totalSize(result.shape); j++) {
+                    result.data[j] += tmp.data[j];
+                }
             }
         }
         return result;
@@ -1218,14 +1228,24 @@ namespace ts {
     Tensor<T> mean(Tensor<T> &tensor, int dim) {
         assert(dim <= tensor.shape.size());
         Tensor<T> result(tensor(0, dim).shape, getT(tensor));
-        omp_set_num_threads(4);
-        for (int i = 0; i < tensor.shape[dim]; i++) {
-            Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
-            tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+        if(acceleration == true) {
+            omp_set_num_threads(4);
+            for (int i = 0; i < tensor.shape[dim]; i++) {
+                Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
+                tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
 #pragma omp parallel for
-            for (int j = 0; j < totalSize(result.shape); j++) {
+                for (int j = 0; j < totalSize(result.shape); j++) {
 #pragma omp critical
-                result.data[j] += tmp.data[j];
+                    result.data[j] += tmp.data[j];
+                }
+            }
+        }else{
+            for (int i = 0; i < tensor.shape[dim]; i++) {
+                Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
+                tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+                for (int j = 0; j < totalSize(result.shape); j++) {
+                    result.data[j] += tmp.data[j];
+                }
             }
         }
 
@@ -1248,11 +1268,17 @@ namespace ts {
         assert(tensor1.shape == tensor2.shape);
         ts::Tensor result = ts::tensor(tensor1.shape, new T[totalSize(tensor1.shape)]);
         int size = totalSize(tensor1.shape);
-        omp_set_num_threads(4);
+        if(acceleration) {
+            omp_set_num_threads(4);
 #pragma omp parallel for
-        for (int i = 0; i < size; i++) {
+            for (int i = 0; i < size; i++) {
 #pragma omp critical
-            result.data[i] = std::max(tensor1.data[i], tensor2.data[i]);
+                result.data[i] = std::max(tensor1.data[i], tensor2.data[i]);
+            }
+        }else{
+            for (int i = 0; i < size; i++) {
+                result.data[i] = std::max(tensor1.data[i], tensor2.data[i]);
+            }
         }
         return result;
     }
@@ -1261,13 +1287,21 @@ namespace ts {
     Tensor<T> max(Tensor<T> &tensor, int dim) {
         assert(dim <= tensor.shape.size());
         Tensor<T> result(tensor(0, dim).shape, std::numeric_limits<T>::min());
-        omp_set_num_threads(4);
+        if(acceleration) {
+            omp_set_num_threads(4);
 #pragma omp parallel for
-        for (int i = 0; i < tensor.shape[dim]; i++) {
+            for (int i = 0; i < tensor.shape[dim]; i++) {
 #pragma omp critical
-            Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
-            tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
-            result = max(result, tmp);
+                Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
+                tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+                result = max(result, tmp);
+            }
+        }else{
+            for (int i = 0; i < tensor.shape[dim]; i++) {
+                Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
+                tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+                result = max(result, tmp);
+            }
         }
         return result;
     }
@@ -1285,11 +1319,17 @@ namespace ts {
         assert(tensor1.shape == tensor2.shape);
         ts::Tensor result = ts::tensor(tensor1.shape, new T[totalSize(tensor1.shape)]);
         int size = totalSize(tensor1.shape);
-        omp_set_num_threads(4);
+        if(acceleration) {
+            omp_set_num_threads(4);
 #pragma omp parallel for
-        for (int i = 0; i < size; i++) {
+            for (int i = 0; i < size; i++) {
 #pragma omp critical
-            result.data[i] = std::min(tensor1.data[i], tensor2.data[i]);
+                result.data[i] = std::min(tensor1.data[i], tensor2.data[i]);
+            }
+        }else{
+            for (int i = 0; i < size; i++) {
+                result.data[i] = std::min(tensor1.data[i], tensor2.data[i]);
+            }
         }
         return result;
     }
@@ -1298,13 +1338,21 @@ namespace ts {
     Tensor<T> min(Tensor<T> &tensor, int dim) {
         assert(dim <= tensor.shape.size());
         Tensor<T> result(tensor(0, dim).shape, std::numeric_limits<T>::max());
-        omp_set_num_threads(4);
+        if(acceleration) {
+            omp_set_num_threads(4);
 #pragma omp parallel for
-        for (int i = 0; i < tensor.shape[dim]; i++) {
+            for (int i = 0; i < tensor.shape[dim]; i++) {
 #pragma omp critical
-            Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
-            tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
-            result = min(result, tmp);
+                Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
+                tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+                result = min(result, tmp);
+            }
+        }else{
+            for (int i = 0; i < tensor.shape[dim]; i++) {
+                Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
+                tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+                result = min(result, tmp);
+            }
         }
         return result;
     }
@@ -1771,15 +1819,26 @@ namespace ts {
         std::vector shape = {resultRows, resultCols};
         Tensor<T> result = ts::tensor(shape, new T[totalSize(shape)]);
 
-        int num_threads = 4;
-        omp_set_num_threads(num_threads);
+        if(acceleration) {
+            int num_threads = 4;
+            omp_set_num_threads(num_threads);
 
 #pragma omp parallel for collapse(2)
-        for (int i = 0; i < resultRows; i++) {
-            for (int j = 0; j < resultCols; j++) {
-                result.data[i * resultCols + j] = 0;
-                for (int k = 0; k < t1.shape[1]; k++) {
-                    result.data[i * resultCols + j] += t1.data[i * t1.shape[1] + k] * t2.data[k * t2.shape[1] + j];
+            for (int i = 0; i < resultRows; i++) {
+                for (int j = 0; j < resultCols; j++) {
+                    result.data[i * resultCols + j] = 0;
+                    for (int k = 0; k < t1.shape[1]; k++) {
+                        result.data[i * resultCols + j] += t1.data[i * t1.shape[1] + k] * t2.data[k * t2.shape[1] + j];
+                    }
+                }
+            }
+        }else{
+            for (int i = 0; i < resultRows; i++) {
+                for (int j = 0; j < resultCols; j++) {
+                    result.data[i * resultCols + j] = 0;
+                    for (int k = 0; k < t1.shape[1]; k++) {
+                        result.data[i * resultCols + j] += t1.data[i * t1.shape[1] + k] * t2.data[k * t2.shape[1] + j];
+                    }
                 }
             }
         }
@@ -1794,18 +1853,32 @@ namespace ts {
         std::vector<int> shape{t1.shape[0],t1.shape[1],t2.shape[2]};
         Tensor<T> result = ts::tensor(shape, new T[totalSize(shape)]);
         int idx = 0;
-        omp_set_num_threads(4);
+        if(acceleration) {
+            omp_set_num_threads(4);
 #pragma omp parallel for
-        for(int i = 0; i < t1.shape[0]; i++){
-            Tensor<T> tmp1(t1(i, 0).shape, getT(t1));
-            tmp1 = newTensor(t1(i, 0), t1(i, 0).shape);
-            Tensor<T> tmp2(t2(i, 0).shape, getT(t2));
-            tmp2 = newTensor(t2(i, 0), t2(i, 0).shape);
-            Tensor<T> mul = matrix_mul(tmp1, tmp2);
+            for (int i = 0; i < t1.shape[0]; i++) {
+                Tensor<T> tmp1(t1(i, 0).shape, getT(t1));
+                tmp1 = newTensor(t1(i, 0), t1(i, 0).shape);
+                Tensor<T> tmp2(t2(i, 0).shape, getT(t2));
+                tmp2 = newTensor(t2(i, 0), t2(i, 0).shape);
+                Tensor<T> mul = matrix_mul(tmp1, tmp2);
 #pragma omp critical
-            for(int j = 0; j < totalSize(mul.shape); j++){
-                result.data[idx] = mul.data[j];
-                idx++;
+                for (int j = 0; j < totalSize(mul.shape); j++) {
+                    result.data[idx] = mul.data[j];
+                    idx++;
+                }
+            }
+        }else{
+            for (int i = 0; i < t1.shape[0]; i++) {
+                Tensor<T> tmp1(t1(i, 0).shape, getT(t1));
+                tmp1 = newTensor(t1(i, 0), t1(i, 0).shape);
+                Tensor<T> tmp2(t2(i, 0).shape, getT(t2));
+                tmp2 = newTensor(t2(i, 0), t2(i, 0).shape);
+                Tensor<T> mul = matrix_mul(tmp1, tmp2);
+                for (int j = 0; j < totalSize(mul.shape); j++) {
+                    result.data[idx] = mul.data[j];
+                    idx++;
+                }
             }
         }
         return result;

@@ -240,8 +240,5 @@ int main() {
     cout << "ts::einsum(\"ij,ij->\",t15,t16)" << endl;
     cout << ts::einsum("ij,ij->",{t15,t16}) << endl;
     cout << endl;
-
-
-
     return 0;
 }
