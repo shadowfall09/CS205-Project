@@ -157,21 +157,8 @@ int main() {
         vector<int> shape1{3, 4};
         ts::Tensor tb1_1 = ts::tensor(shape1, data1);
         cout << "tensor: " << tb1_1 << endl;
-        {
-            cout << "serialization start" << endl;
-            std::ofstream file("tensor.cereal", std::ios::binary);
-            cereal::BinaryOutputArchive oarchive(file);
-            oarchive(tb1_1);
-            cout << "serialization end" << endl;
-        }
-        ts::Tensor<double> tb_2;
-        {
-            cout << "deserialization start" << endl;
-            std::ifstream file("tensor.cereal", std::ios::binary);
-            cereal::BinaryInputArchive iarchive(file);
-            iarchive(tb_2);
-            cout << "deserialization end" << endl;
-        }
+        ts::save(tb1_1,"tensor.cereal");
+        ts::Tensor<double> tb_2=ts::load<double>("tensor.cereal");
         cout << "deserialized tensor: " << endl << tb_2 << endl << endl;
     }
     return 0;

@@ -16,6 +16,9 @@
 #include <iostream>
 #include <unordered_set>
 #include "omp.h"
+#include <cereal/archives/binary.hpp>
+#include <fstream>
+#include <ostream>
 
 namespace ts {
     int totalSize(const std::vector<int> &shape);
@@ -150,19 +153,32 @@ namespace ts {
      */
     template<typename T>
     std::ostream &operator<<(std::ostream &os, const Tensor<T> &tensor) {
-        printTensor(os, tensor, 0, 0, "");
+        std::string str;
+        printTensor(str, tensor, 0, 0, "");
+        if (str.size() > 3000) {
+            int start = str.rfind('\n', 400);
+            int end = str.find('\n', str.size()-400);
+            if (start == std::string::npos || end == std::string::npos) {
+                start=400;
+                end=str.size()-400;
+            }
+            std::string startPart = str.substr(0, start);
+            std::string endPart = str.substr(end);
+            str = startPart + "\n  ............\n" + endPart;
+        }
+        os<<str;
         return os;
     }
 
     // Helper function to print tensor
     template<typename T>
-    void printTensor(std::ostream &os, const Tensor<T> &tensor, int index, int dimension, const std::string &indent) {
+    void printTensor(std::string &str, const Tensor<T> &tensor, int index, int dimension, const std::string &indent) {
         if (dimension == tensor.shape.size()) {
-            os << tensor.data[index];
+            str+=std::to_string(tensor.data[index]);
             return;
         }
 
-        os << "[";
+        str+= "[";
         int dimSize = tensor.shape[dimension];
 //        int nextIndexStep = (dimension < tensor.shape.size() - 1)
 //                            ? totalSize(std::vector<int>(tensor.shape.begin() + dimension + 1, tensor.shape.end()))
@@ -170,14 +186,14 @@ namespace ts {
         int nextIndexStep = tensor.stride[dimension];
         for (int i = 0; i < dimSize; ++i) {
             if (i > 0) {
-                os << ", ";
+                str+= ", ";
                 if (dimension != tensor.shape.size() - 1) {
-                    os << "\n" << indent << std::string(dimension + 1, ' ');
+                    str+= "\n" + indent + std::string(dimension + 1, ' ');
                 }
             }
-            printTensor(os, tensor, index + i * nextIndexStep, dimension + 1, indent + " ");
+            printTensor(str, tensor, index + i * nextIndexStep, dimension + 1, indent + " ");
         }
-        os << "]";
+        str+= "]";
     }
 
     // Helper function to get shape of tensor
@@ -1984,6 +2000,56 @@ namespace ts {
             return singleTensorSum(V);
         }
 
+        // vector-matrix mul
+        if (input_tensor_index.size()==2&&tensors[0].shape.size()==2&&tensors[1].shape.size()==1){
+            std::string first_order = input_tensor_index[0].substr(0,1);
+            std::string second_order = input_tensor_index[0].substr(1,1);
+            std::vector<int> vec;
+            vec.push_back(tensors[1].shape[0]);
+            vec.push_back(1);
+            tensors[1].shape=vec;
+            init_stride(tensors[1]);
+            if (first_order!=second_order){
+                if (output_tensor_index.size()==1){
+                    if (output_tensor_index==first_order&&second_order==input_tensor_index[1]){
+                        return matrix_mul(tensors[0],tensors[1]).transpose(0,1);
+                    }else if (output_tensor_index==second_order&&first_order==input_tensor_index[1]){
+                        return matrix_mul(tensors[0].transpose(0,1),tensors[1]).transpose(0,1);
+                    }
+                }else if (output_tensor_index.empty()){
+                    if (second_order==input_tensor_index[1]){
+                        return matrix_mul(tensors[0],tensors[1]).transpose(0,1);
+                    }else if (first_order==input_tensor_index[1]){
+                        return matrix_mul(tensors[0].transpose(0,1),tensors[1]).transpose(0,1);
+                    }
+                }
+            }
+        }
+        if (input_tensor_index.size()==2&&tensors[0].shape.size()==1&&tensors[1].shape.size()==2){
+            std::string first_order = input_tensor_index[1].substr(0,1);
+            std::string second_order = input_tensor_index[1].substr(1,1);
+            std::vector<int> vec;
+            vec.push_back(tensors[0].shape[0]);
+            vec.push_back(1);
+            tensors[0].shape=vec;
+            init_stride(tensors[0]);
+            if (first_order!=second_order){
+                if (output_tensor_index.size()==1){
+                    if (output_tensor_index==first_order&&second_order==input_tensor_index[0]){
+                        return matrix_mul(tensors[1],tensors[0]).transpose(0,1);
+                    }else if (output_tensor_index==second_order&&first_order==input_tensor_index[0]){
+                        return matrix_mul(tensors[1].transpose(0,1),tensors[0]).transpose(0,1);
+                    }
+                }else if (output_tensor_index.empty()){
+                    if (second_order==input_tensor_index[0]){
+                        return matrix_mul(tensors[1],tensors[0]).transpose(0,1);
+                    }else if (first_order==input_tensor_index[0]){
+                        return matrix_mul(tensors[1].transpose(0,1),tensors[0]).transpose(0,1);
+                    }
+                }
+            }
+        }
+
         // permute
         if (input_tensor_index.size() == 1 && output_tensor_index.empty()) {
             std::vector<int> idx = sort_indexes(input_tensor_index[0]);
@@ -2100,6 +2166,26 @@ namespace ts {
         data = new T[totalSize(shape)];
         ar(cereal::binary_data(data, totalSize(shape) * sizeof(T)));
         init_stride(*this);
+    }
+
+    template<typename T>
+    void save(Tensor<T>& t, std::string filename){
+        std::cout << "serialization start" << std::endl;
+        std::ofstream file(filename, std::ios::binary);
+        cereal::BinaryOutputArchive oarchive(file);
+        oarchive(t);
+        std::cout << "serialization end" << std::endl;
+    }
+
+    template<typename T>
+    Tensor<T> load(std::string filename){
+        ts::Tensor<T> tb_2;
+        std::cout << "deserialization start" << std::endl;
+        std::ifstream file("tensor.cereal", std::ios::binary);
+        cereal::BinaryInputArchive iarchive(file);
+        iarchive(tb_2);
+        std::cout << "deserialization end" << std::endl;
+        return tb_2;
     }
 }
 

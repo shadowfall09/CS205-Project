@@ -209,17 +209,6 @@ int main() {
     cout << ts::einsum("bij,bjk->bik", {t11, t12}) << endl;
     cout << endl;
 
-    //3.4.11 Sum of a tensor
-    cout << "3.4.10 Sum of a tensor" << endl;
-    vector<int> shape17{3,3};
-    int *data17 = new int[9]{1, 2, 3,
-                             4, 5, 6,
-                             7, 8, 9};
-    ts::Tensor t17 = ts::Tensor(shape17, data17);
-    cout << "tensor17: " << endl << t17 << endl;
-    cout << "ts::einsum(\"ij->\",t17)" << endl;
-    cout << ts::einsum("ij->",{t17}) << endl;
-    cout << endl;
 
     //3.4.7 trace
     cout << "3.4.7: Trace" << endl;
@@ -241,6 +230,18 @@ int main() {
     cout << ts::einsum("ijk->jk",{t14}) << endl;
     cout << endl;
 
+
+    //3.4.9 Matrix elements multiply and sum
+    cout << "3.4.9 matrix elements mul and sum" << endl;
+    ts::Tensor t15 = ts::rand<int>({3,3});
+    ts::Tensor t16 = ts::rand<int>({3,3});
+    cout << "tensor15: " << endl << t15 << endl;
+    cout << "tensor16: " << endl << t16 << endl;
+    cout << "ts::einsum(\"ij,ij->\",t15,t16)" << endl;
+    cout << ts::einsum("ij,ij->",{t15,t16}) << endl;
+    cout << endl;
+
+
     //3.4.10 Sum of a tensor
     cout << "3.4.10 Sum of a tensor" << endl;
     vector<int> shape17{3,3};
@@ -253,14 +254,29 @@ int main() {
     cout << ts::einsum("ij->",{t17}) << endl;
     cout << endl;
 
-    //3.4.9 Matrix elements multiply and sum
-    cout << "3.4.9 matrix elements mul and sum" << endl;
-    ts::Tensor t15 = ts::rand<int>({3,3});
-    ts::Tensor t16 = ts::rand<int>({3,3});
+    //3.4.11 Vector Matrix multiplication
+    cout << "3.4.11 Vector Matrix multiplication" << endl;
+    vector<int> shape18{2,3};
+    int *data18 = new int[6]{0,1,2,3,4,5};
+    ts::Tensor t18 = ts::Tensor(shape18, data18);
+    vector<int> shape19{3};
+    int *data19 = new int[3]{0,1,2};
+    ts::Tensor t19 = ts::Tensor(shape19, data19);
+    cout << "tensor18: " << endl << t18 << endl;
+    cout << "tensor19: " << endl << t19 << endl;
+    cout << "ts::einsum(\"ik,k->i\",t18,t19)" << endl;
+    cout << ts::einsum("ik,k->i",{t18,t19}) << endl;
+    cout << endl;
+
+
+    //3.4.12 Matrix Multiplication
+    cout << "3.4.12 Matrix Multiplication" << endl;
     cout << "tensor15: " << endl << t15 << endl;
     cout << "tensor16: " << endl << t16 << endl;
-    cout << "ts::einsum(\"ij,ij->\",t15,t16)" << endl;
-    cout << ts::einsum("ij,ij->",{t15,t16}) << endl;
+    cout << "ts::einsum(\"ik,kj->ij\",t15,t16)" << endl;
+    cout << ts::einsum("ik,kj->ij",{t15,t16}) << endl;
     cout << endl;
+
+
     return 0;
 }
