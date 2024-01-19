@@ -6,8 +6,16 @@
 #include <iostream>
 #include "cereal/cereal.hpp"
 #include "cereal/archives/json.hpp"
+#include <cereal/types/vector.hpp>
+#include <cereal/types/string.hpp>
+#include <cereal/types/memory.hpp>
 #include <fstream>
 #include <memory>
+//#include <boost/archive/text_oarchive.hpp>
+//#include <boost/archive/text_iarchive.hpp>
+//#include <boost/serialization/vector.hpp>
+//#include <boost/serialization/string.hpp>
+//#include <boost/serialization/array.hpp>
 
 namespace ts {
     static bool acceleration = true;
@@ -20,15 +28,11 @@ namespace ts {
         std::vector<int> stride;
         std::string type;
 
-        // 声明序列化函数
-        template <class Archive>
-        void serialize(Archive &archive) {
-            archive(data, shape, stride, type);
-        }
-
         Tensor(const std::vector<int> &shape, T defaultValue);
 
         Tensor(const std::vector<int> &shape, T *data);
+
+        Tensor();
 
         Tensor(const std::vector<int> &shape,const std::vector<int> &stride, T *data, std::shared_ptr<T> parent_data);
 
@@ -140,7 +144,16 @@ namespace ts {
         Tensor<T> diagonal();
 
         void printShape();
+
+//        template<class Archive>
+//        void serialize(Archive & ar, const unsigned int version);
+        template<class Archive>
+        void save(Archive & ar) const;
+
+        template<class Archive>
+        void load(Archive & ar);
     };
+
 
 
     template<typename T>

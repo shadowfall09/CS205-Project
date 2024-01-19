@@ -1,2 +1,4 @@
 cmake-build-debug
 .idea
+boost_1_84_0
+cereal

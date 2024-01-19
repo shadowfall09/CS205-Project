@@ -8,7 +8,7 @@
 #include <numeric>
 #include <utility>
 #include <cassert>
-#include <cmath>
+#include <math.h>
 #include <sstream>
 #include <vector>
 #include <string>
@@ -30,6 +30,16 @@ namespace ts {
     }
 
     // ======= Tensor Constructor =======
+
+    /**
+     * @brief Construct a new Tensor object
+     * @tparam T
+     * @return A new Tensor object
+     */
+    template<typename T>
+    Tensor<T>::Tensor(){}
+
+
     /**
      * @brief Construct a new Tensor object, filled with the given value
      * @tparam T
@@ -1827,7 +1837,7 @@ namespace ts {
             return tensors[0].mul(tensors[1]).sum(0);
         }
 
-        // Vector inner products
+        // Vector outer products
         if (input_tensor_index.size() == 2 && input_tensor_index[0].size() == 1 && input_tensor_index[1].size() == 1 &&
             input_tensor_index[0] != input_tensor_index[1] && output_tensor_index.empty()) {
             return outerProduct(tensors[0], tensors[1]);
@@ -1872,6 +1882,52 @@ namespace ts {
     }
     // ====== 3.4 EINSUM END ======
 
+//    template<typename T>
+//    template<class Archive>
+//    void Tensor<T>::serialize(Archive &ar, const unsigned int version) {
+//        ar & shape;
+////        ar & stride;
+//        ar & type;
+//        if(Archive::is_saving::value) {
+//            int size = totalSize(shape);
+//            std::vector<T> V;
+//            getData(V,*this,0,0);
+//            T * data0=new T[size];
+//            for (int i = 0;i< size;i++){
+//                data0[i]=V[i];
+//            }
+//            ar & boost::serialization::make_array(data0, size);
+//            delete []data0;
+//        } else {
+//            int size = totalSize(shape);
+//            data = new T[size];
+//            ar & boost::serialization::make_array(data, size);
+//            init_stride(*this);
+//        }
+//    };
+
+    template<typename T>
+    template<class Archive>
+    void Tensor<T>::save(Archive & ar) const {
+        int size = totalSize(shape);
+        std::vector<T> V;
+        getData(V,*this,0,0);
+        T * data0=new T[size];
+        for (int i = 0;i< size;i++){
+            data0[i]=V[i];
+        }
+        ar(shape, type, cereal::binary_data(data0, size * sizeof(T)));
+        delete[] data0;
+    }
+
+    template<typename T>
+    template<class Archive>
+    void Tensor<T>::load(Archive & ar) {
+        ar(shape, type);
+        data = new T[totalSize(shape)];
+        ar(cereal::binary_data(data, totalSize(shape) * sizeof(T)));
+        init_stride(*this);
+    }
 }
 
 #endif // TENSOR_ACLR_IMPL_CUH
