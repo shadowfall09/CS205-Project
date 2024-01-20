@@ -187,6 +187,8 @@ int main() {
     cout << "tensor9: " << endl << t9 << endl;
     cout << "ts::einsum(\"i,i->\", t8, t9);" << endl;
     cout << ts::einsum("i,i->",{t8, t9}) << endl;
+    cout << "ts::einsum(\"a,a->\", t8, t9);" << endl;
+    cout << ts::einsum("a,a->",{t8, t9}) << endl;
     cout << endl;
 
     //3.4.2 element-wise product
@@ -214,6 +216,8 @@ int main() {
     cout << "tensor10: " << endl << t10 << endl;
     cout << "ts::einsum(\"ij->ji\",t10)" << endl;
     cout << ts::einsum("ij->ji",{t10}) << endl;
+    cout << "ts::einsum(\"mn->nm\",t10)" << endl;
+    cout << ts::einsum("mn->nm",{t10}) << endl;
     cout << endl;
 
 
@@ -265,6 +269,8 @@ int main() {
     cout << "tensor14: " << endl << t14 << endl;
     cout << "ts::einsum(\"ijk->jk\",t14)" << endl;
     cout << ts::einsum("ijk->jk",{t14}) << endl;
+    cout << "ts::einsum(\"abc->bc\",t14)" << endl;
+    cout << ts::einsum("abc->bc",{t14}) << endl;
     cout << endl;
 
 
