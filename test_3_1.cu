@@ -278,5 +278,47 @@ int main() {
     cout << endl;
 
 
+    {
+        // 3.4 other functions -- dial()
+        cout << "3.4 other functions -- dial()" <<endl;
+        ts::Tensor test0 = ts::rand<int>({5});
+        cout << "input vector: " << endl << test0<<endl;
+        cout << "output: " << endl;
+        cout << ts::dial(test0) << endl;
+        auto *data1 = new double[9]{0, 1, 2, 3,
+                                    4, 5, 6, 7,
+                                    8};
+        vector<int> shape1{3, 3};
+        ts::Tensor<double>tb1_1 = ts::tensor(shape1, data1);
+        cout << "input n*n matrix: " << endl << tb1_1<<endl;
+        cout << "output: " << endl;
+        cout << ts::dial(tb1_1);
+    }
+    {
+        // 3.4 other functions -- clone()
+        cout << "3.4 other functions -- clone()" <<endl;
+        ts::Tensor test0 = ts::rand<int>({5});
+        cout << "input vector: " << endl << test0<<endl;
+        cout << "clone output: " << endl;
+        ts::Tensor test1 = ts::clone(test0);
+        cout << test1 << endl;
+        test0.data[0]=999;
+        cout << "change origin: " << endl << test0<<endl;
+        cout << "clone output: " << endl;
+        cout << test1 << endl;
+    }
+    {
+        // 3.4 other functions -- flatten()
+        cout << "3.4 other functions -- flatten()" <<endl;
+        auto *data0 = new double[9]{0, 1, 2, 3,
+                                    4, 5, 6, 7,
+                                    8};
+        vector<int> shape0{3, 3};
+        ts::Tensor<double>tb1_1 = ts::tensor(shape0, data0);
+        cout << "input tensor: " << endl << tb1_1<<endl;
+        cout << "output: " << endl;
+        cout << ts::flatten<double>(tb1_1);
+    }
+
     return 0;
 }

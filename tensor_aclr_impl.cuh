@@ -1957,6 +1957,18 @@ namespace ts {
         return true;
     }
 
+    template<typename T>
+    Tensor<T> flatten(Tensor<T> t){
+        std::vector<T> V;
+        getData(V,t,0,0);
+        T *data = new T[V.size()];
+        for (int i = 0;i<V.size();i++){
+            data[i]=V[i];
+        }
+        std::vector<int> shape0{int(V.size())};
+        return tensor<T>(shape0,data);
+    }
+
     // ====== EINSUM helper functions END ======
 
     // ====== 3.4 EINSUM ======
@@ -2015,15 +2027,15 @@ namespace ts {
             if (first_order!=second_order){
                 if (output_tensor_index.size()==1){
                     if (output_tensor_index==first_order&&second_order==input_tensor_index[1]){
-                        return matrix_mul(tensors[0],tensors[1]).transpose(0,1);
+                        return flatten<T>(matrix_mul(tensors[0],tensors[1]));
                     }else if (output_tensor_index==second_order&&first_order==input_tensor_index[1]){
-                        return matrix_mul(tensors[0].transpose(0,1),tensors[1]).transpose(0,1);
+                        return flatten<T>(matrix_mul(tensors[0].transpose(0,1),tensors[1]));
                     }
                 }else if (output_tensor_index.empty()){
                     if (second_order==input_tensor_index[1]){
-                        return matrix_mul(tensors[0],tensors[1]).transpose(0,1);
+                        return flatten<T>(matrix_mul(tensors[0],tensors[1]));
                     }else if (first_order==input_tensor_index[1]){
-                        return matrix_mul(tensors[0].transpose(0,1),tensors[1]).transpose(0,1);
+                        return flatten<T>(matrix_mul(tensors[0].transpose(0,1),tensors[1]));
                     }
                 }
             }
@@ -2039,15 +2051,15 @@ namespace ts {
             if (first_order!=second_order){
                 if (output_tensor_index.size()==1){
                     if (output_tensor_index==first_order&&second_order==input_tensor_index[0]){
-                        return matrix_mul(tensors[1],tensors[0]).transpose(0,1);
+                        return flatten(matrix_mul(tensors[1],tensors[0]));
                     }else if (output_tensor_index==second_order&&first_order==input_tensor_index[0]){
-                        return matrix_mul(tensors[1].transpose(0,1),tensors[0]).transpose(0,1);
+                        return flatten(matrix_mul(tensors[1].transpose(0,1),tensors[0]));
                     }
                 }else if (output_tensor_index.empty()){
                     if (second_order==input_tensor_index[0]){
-                        return matrix_mul(tensors[1],tensors[0]).transpose(0,1);
+                        return flatten(matrix_mul(tensors[1],tensors[0]));
                     }else if (first_order==input_tensor_index[0]){
-                        return matrix_mul(tensors[1].transpose(0,1),tensors[0]).transpose(0,1);
+                        return flatten(matrix_mul(tensors[1].transpose(0,1),tensors[0]));
                     }
                 }
             }
@@ -2193,6 +2205,29 @@ namespace ts {
         std::cout << "deserialization end" << std::endl;
         return tb_2;
     }
+
+    template<typename T>
+    Tensor<T> dial(Tensor<T>& t){
+        assert(t.shape.size()==2&&t.shape[0]==t.shape[1]||t.shape.size()==1);
+        if (t.shape.size()==1){
+            std::vector<int>dial_size{t.shape[0],t.shape[0]};
+            ts::Tensor tensor=ts::tensor<T>(dial_size,0);
+            int n = *std::min_element(dial_size.begin(), dial_size.end());
+            for (int i = 0; i < n; ++i) {
+                std::vector<int> index(dial_size.size(), i);
+                tensor.data[indexInFlatArray(index, dial_size)] = t.data[i];
+            }
+            return tensor;
+        }
+        if (t.shape.size()==2){
+            return t.diagonal();
+        }
+    }
+    template<typename T>
+    Tensor<T> clone(Tensor<T>& t){
+        return deepcopy(t);
+    }
+
 }
 
 #endif // TENSOR_ACLR_IMPL_CUH
