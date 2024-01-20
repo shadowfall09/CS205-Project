@@ -1661,7 +1661,7 @@ namespace ts {
 
     // ====== EINSUM helper functions ======
 
-    // trace
+    //trace
     template<typename T>
     Tensor<T> Tensor<T>::trace() {
         int shape_size = shape[0];
@@ -1670,18 +1670,32 @@ namespace ts {
                 throw std::invalid_argument("input tensor is not a square tensor");
             }
         }
+
         T trace = (T) 0;
         std::vector<int> inds;
         inds.reserve(shape.size());
         for (int i = 0; i < shape.size(); i++) {
             inds.push_back(i);
         }
-        for (int t = 0; t < shape_size; t++) {
-            for (int i = 0; i < shape.size(); i++) {
-                inds[i] = t;
+
+        if(acceleration) {
+            omp_set_num_threads(4);
+#pragma omp parallel for reduction(+:trace)
+            for (int t = 0; t < shape_size; t++) {
+                for (int i = 0; i < shape.size(); i++) {
+                    inds[i] = t;
+                }
+                trace += get_value(*this, inds);
             }
-            trace += get_value(*this, inds);
+        }else{
+            for (int t = 0; t < shape_size; t++) {
+                for (int i = 0; i < shape.size(); i++) {
+                    inds[i] = t;
+                }
+                trace += get_value(*this, inds);
+            }
         }
+
         return tensor({1}, trace);
     }
 
@@ -1700,14 +1714,27 @@ namespace ts {
         for (int i = 0; i < shape.size(); i++) {
             inds.push_back(i);
         }
-        for (int t = 0; t < shape_size; t++) {
-            for (int i = 0; i < shape.size(); i++) {
-                inds[i] = t;
+        if(acceleration) {
+            omp_set_num_threads(4);
+            for (int t = 0; t < shape_size; t++) {
+#pragma omp parallel for
+                for (int i = 0; i < shape.size(); i++) {
+                    inds[i] = t;
+                }
+                diagonal[t] = get_value(*this, inds);
             }
-            diagonal[t] = get_value(*this, inds);
+        }else{
+            for (int t = 0; t < shape_size; t++) {
+                for (int i = 0; i < shape.size(); i++) {
+                    inds[i] = t;
+                }
+                diagonal[t] = get_value(*this, inds);
+            }
         }
         return tensor({shape_size}, diagonal);
     }
+
+
 
     template<typename T>
     __global__ void outerProductKernel(T *a, T *b, T *c, size_t len_a, size_t len_b) {
@@ -2106,8 +2133,16 @@ namespace ts {
             std::vector shape = {1};
             Tensor<T> result = ts::tensor(shape, new T[totalSize(shape)]);
             result.data[0] = 0;
-            for (int i = 0; i < tmp.shape[0]; i++) {
-                result.data[0] += tmp.data[i];
+            if(acceleration) {
+                omp_set_num_threads(4);
+#pragma omp parallel for
+                for (int i = 0; i < tmp.shape[0]; i++) {
+                    result.data[0] += tmp.data[i];
+                }
+            }else{
+                for (int i = 0; i < tmp.shape[0]; i++) {
+                    result.data[0] += tmp.data[i];
+                }
             }
             return result;
         }
@@ -2121,7 +2156,6 @@ namespace ts {
             input_tensor_index[1][2] == output_tensor_index[2]) {
             return batch_matrix_mul(tensors[0], tensors[1]);
         }
-
 
         throw std::invalid_argument("input tensors does not match the instruction");
     }

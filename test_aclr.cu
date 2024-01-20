@@ -7,12 +7,16 @@ using namespace std;
 int main() {
     ts::acceleration = true;
 
-    ts::Tensor t1 = ts::rand<int>({500000000});
-    ts::Tensor t2 = ts::rand<int>({500000000});
+    ts::Tensor t1 = ts::ones<int>({500000000});
+    ts::Tensor t2 = ts::ones<int>({500000000});
     // 记录开始时间
     auto start_time = chrono::high_resolution_clock::now();
 
-    ts::Tensor result = t1 * t2; // 保存结果，因为 t1+t2 并不会修改 t1 或 t2
+    //test cuda
+//    ts::Tensor cuda_result = t1 * t2;
+
+    //test openmp
+    ts::Tensor mp_result = t1.sum(0);
 
     // 记录结束时间
     auto end_time = chrono::high_resolution_clock::now();
