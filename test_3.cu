@@ -27,6 +27,8 @@ int main() {
     cout << endl;
 
     cout << "3.1.2: sub" << endl;
+    cout << "tensor1: " << endl << t1 << endl;
+    cout << "tensor2: " << endl << t2 << endl;
     cout << "sub(t1, t2) " << endl << ts::sub(t1, t2) << endl;
     cout << "t1.sub(t2): " << endl << t1.sub(t2) << endl;
     cout << "t1 - t2" << endl << t1 - t2 << endl;
@@ -35,6 +37,8 @@ int main() {
     cout << endl;
 
     cout << "3.1.3: mul" << endl;
+    cout << "tensor1: " << endl << t1 << endl;
+    cout << "tensor2: " << endl << t2 << endl;
     cout << "mul(t1, t2) " << endl << ts::mul(t1, t2) << endl;
     cout << "t1.mul(t2): " << endl << t1.mul(t2) << endl;
     cout << "t1 * t2" << endl << t1 * t2 << endl;
@@ -44,6 +48,8 @@ int main() {
 
 
     cout << "3.1.4: div" << endl;
+    cout << "tensor1: " << endl << t1 << endl;
+    cout << "tensor2: " << endl << t2 << endl;
     cout << "div(t1, t2) " << endl << ts::div(t1, t2) << endl;
     cout << "t1.div(t2): " << endl << t1.div(t2) << endl;
     cout << "t1 / t2" << endl << t1 / t2 << endl;
@@ -58,6 +64,7 @@ int main() {
                        3, 4,
                        5, 6};
     ts::Tensor t3 = ts::tensor(shape3, data3);
+    cout << "tensor3: " << endl << t3 << endl;
     cout << "t3.log() " << endl << t3.log() << endl;
     cout << endl;
 
@@ -79,6 +86,7 @@ int main() {
     cout << endl;
 
     cout << "3.2.2: mean" << endl;
+    cout << "tensor4" << endl << t4 << endl;
     cout << "mean(t4, 0) " << endl << ts::mean(t4,0) << endl;
     cout << "mean(t4, 1) " << endl << ts::mean(t4,1) << endl;
     cout << "t4.mean(0)" << endl << t4.mean(0) << endl;
@@ -86,6 +94,7 @@ int main() {
     cout << endl;
 
     cout << "3.2.3: max" << endl;
+    cout << "tensor4" << endl << t4 << endl;
     cout << "max(t4, 0) " << endl << ts::max(t4,0) << endl;
     cout << "max(t4, 1) " << endl << ts::max(t4,1) << endl;
     cout << "t4.max(0)" << endl << t4.max(0) << endl;
@@ -93,6 +102,7 @@ int main() {
     cout << endl;
 
     cout << "3.2.4: min:" << endl;
+    cout << "tensor4" << endl << t4 << endl;
     cout << "min(t4, 0) " << endl << ts::min(t4,0) << endl;
     cout << "min(t4, 1) " << endl << ts::min(t4,1) << endl;
     cout << "t4.min(0)" << endl << t4.min(0) << endl;
@@ -121,30 +131,40 @@ int main() {
     cout << endl;
 
     cout << "3.3.2: ne" << endl;
+    cout << "tensor5: " << endl << t5 << endl;
+    cout << "tensor6: " << endl << t6 << endl;
     cout << "ne(t5, t6)" << endl << ts::ne(t5, t6) << endl;
     cout << "t5.ne(t6)" << endl << t5.ne(t6) << endl;
     cout << "t5 != t6" << endl << (t5 != t6) << endl;
     cout << endl;
 
     cout << "3.3.3: gt" << endl;
+    cout << "tensor5: " << endl << t5 << endl;
+    cout << "tensor6: " << endl << t6 << endl;
     cout << "gt(t5, t6)" << endl << ts::gt(t5, t6) << endl;
     cout << "t5.gt(t6)" << endl << t5.gt(t6) << endl;
     cout << "t5 > t6" << endl << (t5 > t6) << endl;
     cout << endl;
 
     cout << "3.3.4: ge" << endl;
+    cout << "tensor5: " << endl << t5 << endl;
+    cout << "tensor6: " << endl << t6 << endl;
     cout << "ge(t5, t6)" << endl << ts::ge(t5, t6) << endl;
     cout << "t5.ge(t6)" << endl << t5.ge(t6) << endl;
     cout << "t5 >= t6" << endl << (t5 >= t6) << endl;
     cout << endl;
 
     cout << "3.3.5: lt" << endl;
+    cout << "tensor5: " << endl << t5 << endl;
+    cout << "tensor6: " << endl << t6 << endl;
     cout << "lt(t5, t6)" << endl << ts::lt(t5, t6) << endl;
     cout << "t5.lt(t6)" << endl << t5.lt(t6) << endl;
     cout << "t5 < t6" << endl << (t5 < t6) << endl;
     cout << endl;
 
     cout << "3.3.6: le" << endl;
+    cout << "tensor5: " << endl << t5 << endl;
+    cout << "tensor6: " << endl << t6 << endl;
     cout << "le(t5, t6)" << endl << ts::le(t5, t6) << endl;
     cout << "t5.le(t6)" << endl << t5.le(t6) << endl;
     cout << "t5 <= t6" << endl << (t5 <= t6) << endl;
@@ -159,18 +179,20 @@ int main() {
     vector<int> shape9{3};
     int *data9 = new int[3]{4, 5, 6};
     ts::Tensor t9 = ts::Tensor(shape9, data9);
-    cout << "tensor8: " << endl << t8 << endl;
-    cout << "tensor9: " << endl << t9 << endl;
     cout << endl;
 
     //3.4.1 dot product (inner product)
     cout <<"3.4.1: dot product " << endl;
+    cout << "tensor8: " << endl << t8 << endl;
+    cout << "tensor9: " << endl << t9 << endl;
     cout << "ts::einsum(\"i,i->\", t8, t9);" << endl;
     cout << ts::einsum("i,i->",{t8, t9}) << endl;
     cout << endl;
 
     //3.4.2 element-wise product
     cout << "3.4.2: computes the element-wise product " << endl;
+    cout << "tensor8: " << endl << t8 << endl;
+    cout << "tensor9: " << endl << t9 << endl;
     cout << "ts::einsum(\"i,i->i\", t8, t9);" << endl;
     cout << ts::einsum("i,i->i",{t8, t9}) << endl;
     cout << endl;
@@ -183,18 +205,22 @@ int main() {
                              7, 8, 9};
     ts::Tensor t10 = ts::Tensor(shape10, data10);
     cout << "tensor10: " << endl << t10 << endl;
-    cout <<"ts::einsum(\"ii->i\", t10);";
+    cout <<"ts::einsum(\"ii->i\", t10);" << endl;
     cout << ts::einsum("ii->i", {t10}) << endl;
     cout << endl;
 
     //3.4.4 permute
     cout << "3.4.4: permute" << endl;
+    cout << "tensor10: " << endl << t10 << endl;
+    cout << "ts::einsum(\"ij->ji\",t10)" << endl;
     cout << ts::einsum("ij->ji",{t10}) << endl;
     cout << endl;
 
 
     //3.4.5 outer product
     cout << "3.4.5: outer product" << endl;
+    cout << "tensor8: " << endl << t8 << endl;
+    cout << "tensor9: " << endl << t9 << endl;
     cout << "ts::einsum(\"i,j->ij\", t8, t9);" << endl;
     cout << ts::einsum("i,j->ij",{t8, t9}) << endl;
     cout << endl;
