@@ -227,8 +227,14 @@ int main() {
 
     //3.4.6 batch matrix mul
     cout << "3.4.6: Batch Matrix Multiplication" << endl;
-    ts::Tensor t11 = ts::rand<int>({2, 3, 2});
-    ts::Tensor t12 = ts::rand<int>({2, 2, 3});
+    vector<int> shape11{2,3,2};
+    int *data11 = new int[12]{1, 2, 3, 4, 5, 6,
+                             7, 8, 9, 10, 11, 12};
+    ts::Tensor t11 = ts::tensor(shape11, data11);
+    vector<int> shape12{2,2,3};
+    int *data12 = new int[12]{1, 2, 3, 4, 5, 6,
+                              7, 8, 9, 10, 11, 12};
+    ts::Tensor t12 = ts::tensor(shape12, data12);
     cout << "tensor11: " << endl << t11 << endl;
     cout << "tensor12: " << endl << t12 << endl;
     cout << "ts::einsum(\"bij,bjk->bik\", t11, t12);" << endl;
@@ -250,7 +256,12 @@ int main() {
 
     //3.4.8 sum over an axis
     cout << "3.4.8: sum over an axis" << endl;
-    ts::Tensor t14 = ts::rand<int>({2,3,4});
+    vector<int> shape14{2,3,4};
+    int *data14 = new int[24]{1, 2, 3, 4, 5, 6,
+                              7, 8, 9, 10, 11, 12,
+                              13, 14, 15, 16, 17, 18,
+                              19, 20, 21, 22, 23, 24};
+    ts::Tensor t14 = ts::Tensor(shape14, data14);
     cout << "tensor14: " << endl << t14 << endl;
     cout << "ts::einsum(\"ijk->jk\",t14)" << endl;
     cout << ts::einsum("ijk->jk",{t14}) << endl;
@@ -259,8 +270,16 @@ int main() {
 
     //3.4.9 Matrix elements multiply and sum
     cout << "3.4.9 matrix elements mul and sum" << endl;
-    ts::Tensor t15 = ts::rand<int>({3,3});
-    ts::Tensor t16 = ts::rand<int>({3,3});
+    vector<int> shape15{3,3};
+    int *data15 = new int[9]{1, 2, 3,
+                             4, 5, 6,
+                             7, 8, 9};
+    ts::Tensor t15 = ts::Tensor{shape15, data15};
+    vector<int> shape16{3,3};
+    int *data16 = new int[9]{1, 2, 3,
+                             4, 5, 6,
+                             7, 8, 9};
+    ts::Tensor t16 = ts::Tensor(shape16, data16);
     cout << "tensor15: " << endl << t15 << endl;
     cout << "tensor16: " << endl << t16 << endl;
     cout << "ts::einsum(\"ij,ij->\",t15,t16)" << endl;
