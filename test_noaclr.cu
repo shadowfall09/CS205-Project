@@ -7,8 +7,10 @@ using namespace std;
 int main() {
     ts::acceleration = false;
 
-    ts::Tensor t1 = ts::ones<int>({500000000});
-    ts::Tensor t2 = ts::ones<int>({500000000});
+//    ts::Tensor t1 = ts::ones<int>({500000000});
+//    ts::Tensor t2 = ts::ones<int>({500000000});
+    ts::Tensor t1 = ts::ones<int>({50000000});
+    ts::Tensor t2 = ts::ones<int>({50000000});
     // 记录开始时间
     auto start_time = chrono::high_resolution_clock::now();
 

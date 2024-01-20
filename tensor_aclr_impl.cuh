@@ -1217,9 +1217,9 @@ namespace ts {
             for (int i = 0; i < tensor.shape[dim]; i++) {
                 Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
                 tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+//#pragma omp parallel for reduction(+:result.data[:totalSize(result.shape)])
 #pragma omp parallel for
                 for (int j = 0; j < totalSize(result.shape); j++) {
-#pragma omp critical
                     result.data[j] += tmp.data[j];
                 }
             }
@@ -1254,7 +1254,6 @@ namespace ts {
                 tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
 #pragma omp parallel for
                 for (int j = 0; j < totalSize(result.shape); j++) {
-#pragma omp critical
                     result.data[j] += tmp.data[j];
                 }
             }
@@ -1291,7 +1290,6 @@ namespace ts {
             omp_set_num_threads(4);
 #pragma omp parallel for
             for (int i = 0; i < size; i++) {
-#pragma omp critical
                 result.data[i] = std::max(tensor1.data[i], tensor2.data[i]);
             }
         } else {
@@ -1310,7 +1308,6 @@ namespace ts {
             omp_set_num_threads(4);
 #pragma omp parallel for
             for (int i = 0; i < tensor.shape[dim]; i++) {
-#pragma omp critical
                 Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
                 tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
                 result = max(result, tmp);
@@ -1342,7 +1339,6 @@ namespace ts {
             omp_set_num_threads(4);
 #pragma omp parallel for
             for (int i = 0; i < size; i++) {
-#pragma omp critical
                 result.data[i] = std::min(tensor1.data[i], tensor2.data[i]);
             }
         } else {
@@ -1361,7 +1357,6 @@ namespace ts {
             omp_set_num_threads(4);
 #pragma omp parallel for
             for (int i = 0; i < tensor.shape[dim]; i++) {
-#pragma omp critical
                 Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
                 tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
                 result = min(result, tmp);
@@ -1952,7 +1947,6 @@ namespace ts {
                 Tensor<T> tmp2(t2(i, 0).shape, getT(t2));
                 tmp2 = newTensor(t2(i, 0), t2(i, 0).shape);
                 Tensor<T> mul = matrix_mul(tmp1, tmp2);
-#pragma omp critical
                 for (int j = 0; j < totalSize(mul.shape); j++) {
                     result.data[idx] = mul.data[j];
                     idx++;
