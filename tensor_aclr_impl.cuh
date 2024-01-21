@@ -157,16 +157,16 @@ namespace ts {
         printTensor(str, tensor, 0, 0, "");
         if (str.size() > 3000) {
             int start = str.rfind('\n', 400);
-            int end = str.find('\n', str.size()-400);
+            int end = str.find('\n', str.size() - 400);
             if (start == std::string::npos || end == std::string::npos) {
-                start=400;
-                end=str.size()-400;
+                start = 400;
+                end = str.size() - 400;
             }
             std::string startPart = str.substr(0, start);
             std::string endPart = str.substr(end);
             str = startPart + "\n  ............\n" + endPart;
         }
-        os<<str;
+        os << str;
         return os;
     }
 
@@ -174,11 +174,11 @@ namespace ts {
     template<typename T>
     void printTensor(std::string &str, const Tensor<T> &tensor, int index, int dimension, const std::string &indent) {
         if (dimension == tensor.shape.size()) {
-            str+=std::to_string(tensor.data[index]);
+            str += std::to_string(tensor.data[index]);
             return;
         }
 
-        str+= "[";
+        str += "[";
         int dimSize = tensor.shape[dimension];
 //        int nextIndexStep = (dimension < tensor.shape.size() - 1)
 //                            ? totalSize(std::vector<int>(tensor.shape.begin() + dimension + 1, tensor.shape.end()))
@@ -186,14 +186,14 @@ namespace ts {
         int nextIndexStep = tensor.stride[dimension];
         for (int i = 0; i < dimSize; ++i) {
             if (i > 0) {
-                str+= ", ";
+                str += ", ";
                 if (dimension != tensor.shape.size() - 1) {
-                    str+= "\n" + indent + std::string(dimension + 1, ' ');
+                    str += "\n" + indent + std::string(dimension + 1, ' ');
                 }
             }
             printTensor(str, tensor, index + i * nextIndexStep, dimension + 1, indent + " ");
         }
-        str+= "]";
+        str += "]";
     }
 
     // Helper function to get shape of tensor
@@ -415,7 +415,7 @@ namespace ts {
         if (new_shape.empty()) new_shape.push_back(1);
         std::vector<int> new_stride = stride;
         new_stride.erase(new_stride.begin() + dim);
-        if(new_stride.empty()) new_stride.push_back(1);
+        if (new_stride.empty()) new_stride.push_back(1);
         Tensor<T> tensor(new_shape, new_stride, data + index * stride[dim], parent_data);
         return tensor;
     }
@@ -1218,9 +1218,11 @@ namespace ts {
                 Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
                 tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
 //#pragma omp parallel for reduction(+:result.data[:totalSize(result.shape)])
-#pragma omp parallel for
-                for (int j = 0; j < totalSize(result.shape); j++) {
-                    result.data[j] += tmp.data[j];
+#pragma omp parallel
+                {
+                    for (int j = 0; j < totalSize(result.shape); j++) {
+                        result.data[j] += tmp.data[j];
+                    }
                 }
             }
         } else {
@@ -1252,9 +1254,11 @@ namespace ts {
             for (int i = 0; i < tensor.shape[dim]; i++) {
                 Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
                 tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
-#pragma omp parallel for
-                for (int j = 0; j < totalSize(result.shape); j++) {
-                    result.data[j] += tmp.data[j];
+#pragma omp parallel
+                {
+                    for (int j = 0; j < totalSize(result.shape); j++) {
+                        result.data[j] += tmp.data[j];
+                    }
                 }
             }
         } else {
@@ -1288,9 +1292,11 @@ namespace ts {
         int size = totalSize(tensor1.shape);
         if (acceleration) {
             omp_set_num_threads(4);
-#pragma omp parallel for
-            for (int i = 0; i < size; i++) {
-                result.data[i] = std::max(tensor1.data[i], tensor2.data[i]);
+#pragma omp parallel
+            {
+                for (int i = 0; i < size; i++) {
+                    result.data[i] = std::max(tensor1.data[i], tensor2.data[i]);
+                }
             }
         } else {
             for (int i = 0; i < size; i++) {
@@ -1306,11 +1312,13 @@ namespace ts {
         Tensor<T> result(tensor(0, dim).shape, std::numeric_limits<T>::min());
         if (acceleration) {
             omp_set_num_threads(4);
-#pragma omp parallel for
-            for (int i = 0; i < tensor.shape[dim]; i++) {
-                Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
-                tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
-                result = max(result, tmp);
+#pragma omp parallel
+            {
+                for (int i = 0; i < tensor.shape[dim]; i++) {
+                    Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
+                    tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+                    result = max(result, tmp);
+                }
             }
         } else {
             for (int i = 0; i < tensor.shape[dim]; i++) {
@@ -1337,9 +1345,11 @@ namespace ts {
         int size = totalSize(tensor1.shape);
         if (acceleration) {
             omp_set_num_threads(4);
-#pragma omp parallel for
-            for (int i = 0; i < size; i++) {
-                result.data[i] = std::min(tensor1.data[i], tensor2.data[i]);
+#pragma omp parallel
+            {
+                for (int i = 0; i < size; i++) {
+                    result.data[i] = std::min(tensor1.data[i], tensor2.data[i]);
+                }
             }
         } else {
             for (int i = 0; i < size; i++) {
@@ -1355,11 +1365,13 @@ namespace ts {
         Tensor<T> result(tensor(0, dim).shape, std::numeric_limits<T>::max());
         if (acceleration) {
             omp_set_num_threads(4);
-#pragma omp parallel for
-            for (int i = 0; i < tensor.shape[dim]; i++) {
-                Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
-                tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
-                result = min(result, tmp);
+#pragma omp parallel
+            {
+                for (int i = 0; i < tensor.shape[dim]; i++) {
+                    Tensor<T> tmp(tensor(0, dim).shape, getT(tensor));
+                    tmp = newTensor(tensor(i, dim), tensor(i, dim).shape);
+                    result = min(result, tmp);
+                }
             }
         } else {
             for (int i = 0; i < tensor.shape[dim]; i++) {
@@ -1673,16 +1685,18 @@ namespace ts {
             inds.push_back(i);
         }
 
-        if(acceleration) {
+        if (acceleration) {
             omp_set_num_threads(4);
-#pragma omp parallel for reduction(+:trace)
-            for (int t = 0; t < shape_size; t++) {
-                for (int i = 0; i < shape.size(); i++) {
-                    inds[i] = t;
+#pragma omp parallel reduction(+:trace)
+            {
+                for (int t = 0; t < shape_size; t++) {
+                    for (int i = 0; i < shape.size(); i++) {
+                        inds[i] = t;
+                    }
+                    trace += get_value(*this, inds);
                 }
-                trace += get_value(*this, inds);
             }
-        }else{
+        } else {
             for (int t = 0; t < shape_size; t++) {
                 for (int i = 0; i < shape.size(); i++) {
                     inds[i] = t;
@@ -1709,16 +1723,18 @@ namespace ts {
         for (int i = 0; i < shape.size(); i++) {
             inds.push_back(i);
         }
-        if(acceleration) {
+        if (acceleration) {
             omp_set_num_threads(4);
             for (int t = 0; t < shape_size; t++) {
-#pragma omp parallel for
-                for (int i = 0; i < shape.size(); i++) {
-                    inds[i] = t;
+#pragma omp parallel
+                {
+                    for (int i = 0; i < shape.size(); i++) {
+                        inds[i] = t;
+                    }
                 }
                 diagonal[t] = get_value(*this, inds);
             }
-        }else{
+        } else {
             for (int t = 0; t < shape_size; t++) {
                 for (int i = 0; i < shape.size(); i++) {
                     inds[i] = t;
@@ -1728,7 +1744,6 @@ namespace ts {
         }
         return tensor({shape_size}, diagonal);
     }
-
 
 
     template<typename T>
@@ -1908,12 +1923,15 @@ namespace ts {
             int num_threads = 4;
             omp_set_num_threads(num_threads);
 
-#pragma omp parallel for collapse(2)
-            for (int i = 0; i < resultRows; i++) {
-                for (int j = 0; j < resultCols; j++) {
-                    result.data[i * resultCols + j] = 0;
-                    for (int k = 0; k < t1.shape[1]; k++) {
-                        result.data[i * resultCols + j] += t1.data[i * t1.shape[1] + k] * t2.data[k * t2.shape[1] + j];
+#pragma omp parallel collapse(2)
+            {
+                for (int i = 0; i < resultRows; i++) {
+                    for (int j = 0; j < resultCols; j++) {
+                        result.data[i * resultCols + j] = 0;
+                        for (int k = 0; k < t1.shape[1]; k++) {
+                            result.data[i * resultCols + j] +=
+                                    t1.data[i * t1.shape[1] + k] * t2.data[k * t2.shape[1] + j];
+                        }
                     }
                 }
             }
@@ -1940,16 +1958,18 @@ namespace ts {
         int idx = 0;
         if (acceleration) {
             omp_set_num_threads(4);
-#pragma omp parallel for
-            for (int i = 0; i < t1.shape[0]; i++) {
-                Tensor<T> tmp1(t1(i, 0).shape, getT(t1));
-                tmp1 = newTensor(t1(i, 0), t1(i, 0).shape);
-                Tensor<T> tmp2(t2(i, 0).shape, getT(t2));
-                tmp2 = newTensor(t2(i, 0), t2(i, 0).shape);
-                Tensor<T> mul = matrix_mul(tmp1, tmp2);
-                for (int j = 0; j < totalSize(mul.shape); j++) {
-                    result.data[idx] = mul.data[j];
-                    idx++;
+#pragma omp parallel
+            {
+                for (int i = 0; i < t1.shape[0]; i++) {
+                    Tensor<T> tmp1(t1(i, 0).shape, getT(t1));
+                    tmp1 = newTensor(t1(i, 0), t1(i, 0).shape);
+                    Tensor<T> tmp2(t2(i, 0).shape, getT(t2));
+                    tmp2 = newTensor(t2(i, 0), t2(i, 0).shape);
+                    Tensor<T> mul = matrix_mul(tmp1, tmp2);
+                    for (int j = 0; j < totalSize(mul.shape); j++) {
+                        result.data[idx] = mul.data[j];
+                        idx++;
+                    }
                 }
             }
         } else {
@@ -1979,15 +1999,15 @@ namespace ts {
     }
 
     template<typename T>
-    Tensor<T> flatten(Tensor<T> t){
+    Tensor<T> flatten(Tensor<T> t) {
         std::vector<T> V;
-        getData(V,t,0,0);
+        getData(V, t, 0, 0);
         T *data = new T[V.size()];
-        for (int i = 0;i<V.size();i++){
-            data[i]=V[i];
+        for (int i = 0; i < V.size(); i++) {
+            data[i] = V[i];
         }
         std::vector<int> shape0{int(V.size())};
-        return tensor<T>(shape0,data);
+        return tensor<T>(shape0, data);
     }
 
     // ====== EINSUM helper functions END ======
@@ -2037,50 +2057,50 @@ namespace ts {
         }
 
         // vector-matrix mul
-        if (input_tensor_index.size()==2&&tensors[0].shape.size()==2&&tensors[1].shape.size()==1){
-            std::string first_order = input_tensor_index[0].substr(0,1);
-            std::string second_order = input_tensor_index[0].substr(1,1);
+        if (input_tensor_index.size() == 2 && tensors[0].shape.size() == 2 && tensors[1].shape.size() == 1) {
+            std::string first_order = input_tensor_index[0].substr(0, 1);
+            std::string second_order = input_tensor_index[0].substr(1, 1);
             std::vector<int> vec;
             vec.push_back(tensors[1].shape[0]);
             vec.push_back(1);
-            tensors[1].shape=vec;
+            tensors[1].shape = vec;
             init_stride(tensors[1]);
-            if (first_order!=second_order){
-                if (output_tensor_index.size()==1){
-                    if (output_tensor_index==first_order&&second_order==input_tensor_index[1]){
-                        return flatten<T>(matrix_mul(tensors[0],tensors[1]));
-                    }else if (output_tensor_index==second_order&&first_order==input_tensor_index[1]){
-                        return flatten<T>(matrix_mul(tensors[0].transpose(0,1),tensors[1]));
+            if (first_order != second_order) {
+                if (output_tensor_index.size() == 1) {
+                    if (output_tensor_index == first_order && second_order == input_tensor_index[1]) {
+                        return flatten<T>(matrix_mul(tensors[0], tensors[1]));
+                    } else if (output_tensor_index == second_order && first_order == input_tensor_index[1]) {
+                        return flatten<T>(matrix_mul(tensors[0].transpose(0, 1), tensors[1]));
                     }
-                }else if (output_tensor_index.empty()){
-                    if (second_order==input_tensor_index[1]){
-                        return flatten<T>(matrix_mul(tensors[0],tensors[1]));
-                    }else if (first_order==input_tensor_index[1]){
-                        return flatten<T>(matrix_mul(tensors[0].transpose(0,1),tensors[1]));
+                } else if (output_tensor_index.empty()) {
+                    if (second_order == input_tensor_index[1]) {
+                        return flatten<T>(matrix_mul(tensors[0], tensors[1]));
+                    } else if (first_order == input_tensor_index[1]) {
+                        return flatten<T>(matrix_mul(tensors[0].transpose(0, 1), tensors[1]));
                     }
                 }
             }
         }
-        if (input_tensor_index.size()==2&&tensors[0].shape.size()==1&&tensors[1].shape.size()==2){
-            std::string first_order = input_tensor_index[1].substr(0,1);
-            std::string second_order = input_tensor_index[1].substr(1,1);
+        if (input_tensor_index.size() == 2 && tensors[0].shape.size() == 1 && tensors[1].shape.size() == 2) {
+            std::string first_order = input_tensor_index[1].substr(0, 1);
+            std::string second_order = input_tensor_index[1].substr(1, 1);
             std::vector<int> vec;
             vec.push_back(tensors[0].shape[0]);
             vec.push_back(1);
-            tensors[0].shape=vec;
+            tensors[0].shape = vec;
             init_stride(tensors[0]);
-            if (first_order!=second_order){
-                if (output_tensor_index.size()==1){
-                    if (output_tensor_index==first_order&&second_order==input_tensor_index[0]){
-                        return flatten(matrix_mul(tensors[1],tensors[0]));
-                    }else if (output_tensor_index==second_order&&first_order==input_tensor_index[0]){
-                        return flatten(matrix_mul(tensors[1].transpose(0,1),tensors[0]));
+            if (first_order != second_order) {
+                if (output_tensor_index.size() == 1) {
+                    if (output_tensor_index == first_order && second_order == input_tensor_index[0]) {
+                        return flatten(matrix_mul(tensors[1], tensors[0]));
+                    } else if (output_tensor_index == second_order && first_order == input_tensor_index[0]) {
+                        return flatten(matrix_mul(tensors[1].transpose(0, 1), tensors[0]));
                     }
-                }else if (output_tensor_index.empty()){
-                    if (second_order==input_tensor_index[0]){
-                        return flatten(matrix_mul(tensors[1],tensors[0]));
-                    }else if (first_order==input_tensor_index[0]){
-                        return flatten(matrix_mul(tensors[1].transpose(0,1),tensors[0]));
+                } else if (output_tensor_index.empty()) {
+                    if (second_order == input_tensor_index[0]) {
+                        return flatten(matrix_mul(tensors[1], tensors[0]));
+                    } else if (first_order == input_tensor_index[0]) {
+                        return flatten(matrix_mul(tensors[1].transpose(0, 1), tensors[0]));
                     }
                 }
             }
@@ -2139,13 +2159,15 @@ namespace ts {
             std::vector shape = {1};
             Tensor<T> result = ts::tensor(shape, new T[totalSize(shape)]);
             result.data[0] = 0;
-            if(acceleration) {
+            if (acceleration) {
                 omp_set_num_threads(4);
-#pragma omp parallel for
-                for (int i = 0; i < tmp.shape[0]; i++) {
-                    result.data[0] += tmp.data[i];
+#pragma omp parallel
+                {
+                    for (int i = 0; i < tmp.shape[0]; i++) {
+                        result.data[0] += tmp.data[i];
+                    }
                 }
-            }else{
+            } else {
                 for (int i = 0; i < tmp.shape[0]; i++) {
                     result.data[0] += tmp.data[i];
                 }
@@ -2215,7 +2237,7 @@ namespace ts {
     }
 
     template<typename T>
-    void save(Tensor<T>& t, std::string filename){
+    void save(Tensor<T> &t, std::string filename) {
         std::cout << "serialization start" << std::endl;
         std::ofstream file(filename, std::ios::binary);
         cereal::BinaryOutputArchive oarchive(file);
@@ -2224,7 +2246,7 @@ namespace ts {
     }
 
     template<typename T>
-    Tensor<T> load(std::string filename){
+    Tensor<T> load(std::string filename) {
         ts::Tensor<T> tb_2;
         std::cout << "deserialization start" << std::endl;
         std::ifstream file("tensor.cereal", std::ios::binary);
@@ -2235,11 +2257,11 @@ namespace ts {
     }
 
     template<typename T>
-    Tensor<T> dial(Tensor<T>& t){
-        assert(t.shape.size()==2&&t.shape[0]==t.shape[1]||t.shape.size()==1);
-        if (t.shape.size()==1){
-            std::vector<int>dial_size{t.shape[0],t.shape[0]};
-            ts::Tensor tensor=ts::tensor<T>(dial_size,0);
+    Tensor<T> dial(Tensor<T> &t) {
+        assert(t.shape.size() == 2 && t.shape[0] == t.shape[1] || t.shape.size() == 1);
+        if (t.shape.size() == 1) {
+            std::vector<int> dial_size{t.shape[0], t.shape[0]};
+            ts::Tensor tensor = ts::tensor<T>(dial_size, 0);
             int n = *std::min_element(dial_size.begin(), dial_size.end());
             for (int i = 0; i < n; ++i) {
                 std::vector<int> index(dial_size.size(), i);
@@ -2247,12 +2269,13 @@ namespace ts {
             }
             return tensor;
         }
-        if (t.shape.size()==2){
+        if (t.shape.size() == 2) {
             return t.diagonal();
         }
     }
+
     template<typename T>
-    Tensor<T> clone(Tensor<T>& t){
+    Tensor<T> clone(Tensor<T> &t) {
         return deepcopy(t);
     }
 
