@@ -5,6 +5,9 @@ using namespace std;
 
 int main() {
     // 3.1 Pointwise operations including add , sub , mul , div , log
+
+    freopen( "/home/shadowfall/CLionProjects/CS205-Project-zyj/test_3.out", "w", stdout);
+
     cout << "3.1: Pointwise operations" << endl;
     vector<int> shape1{3,2};
     double *data1 = new double[6]{0.1, 1.2,

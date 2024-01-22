@@ -7,6 +7,9 @@ using namespace std;
 
 int main() {
     {
+
+        freopen( "/home/shadowfall/CLionProjects/CS205-Project-zyj/test_2.out", "w", stdout);
+
         // 1.1 Create a tensor from a given array by copying data to your memory
         double *data1 = new double[12]{0, 1, 2, 3,
                                        4, 5, 6, 7,
